@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { ScreenHeader, Label, Field, Hairline, PrimaryButton } from "../Primitives";
 import { logDiet } from "../../api/gymUser";
+import CalorieRing from "../components/CalorieRing";
 
 function MacroBar({ label, value, pct }) {
   return (
@@ -112,21 +113,31 @@ export default function LogDietScreen({ onBack }) {
 
       <div style={{ flex: 1, padding: "26px 30px 0", overflow: "auto" }}>
         <Label>Today's intake</Label>
-        <div style={{ marginTop: 12, display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span
-            style={{
-              fontFamily: "var(--font-numeral)",
-              fontWeight: 700,
-              fontSize: 28,
-              color: "var(--charcoal)",
-              lineHeight: 1,
-            }}
-          >
-            1,840
-          </span>
-          <span style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--muted)" }}>
-            / 1,850 kcal
-          </span>
+        <div
+          style={{
+            marginTop: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+            <span
+              style={{
+                fontFamily: "var(--font-numeral)",
+                fontWeight: 700,
+                fontSize: 28,
+                color: "var(--charcoal)",
+                lineHeight: 1,
+              }}
+            >
+              1,840
+            </span>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--muted)" }}>
+              / 1,850 kcal
+            </span>
+          </div>
+          <CalorieRing value={1840} goal={1850} />
         </div>
 
         <div style={{ marginTop: 22, display: "flex", gap: 20 }}>
