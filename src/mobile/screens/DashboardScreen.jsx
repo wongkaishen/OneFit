@@ -1,5 +1,9 @@
-import React, { useState } from "react";
+"use client";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BrandMark, Label, Hairline, Pill } from "../Primitives";
+import { getDashboard } from "../../api/gymUser";
+import { useAuth } from "../../auth/useAuth";
 
 function StatRow({ name, value, unit, pct }) {
   return (
@@ -51,8 +55,9 @@ function StatRow({ name, value, unit, pct }) {
   );
 }
 
-function WorkoutRow({ time, name, tag, isNext }) {
+function WorkoutRow({ time, name, tag, isNext, next }) {
   const [pressed, setPressed] = useState(false);
+  const showNext = isNext ?? next;
   return (
     <div
       onMouseDown={() => setPressed(true)}
@@ -64,15 +69,15 @@ function WorkoutRow({ time, name, tag, isNext }) {
         alignItems: "center",
         gap: 18,
         padding: "16px 0 14px",
-        paddingLeft: isNext ? 14 : 0,
-        background: isNext ? "var(--white)" : "transparent",
-        borderLeft: isNext ? "3px solid var(--coral)" : "3px solid transparent",
-        marginLeft: isNext ? -16 : 0,
-        marginRight: isNext ? -16 : 0,
-        paddingRight: isNext ? 14 : 0,
-        cursor: isNext ? "pointer" : "default",
-        opacity: pressed && isNext ? 0.9 : 1,
-        transform: pressed && isNext ? "scale(0.99)" : "none",
+        paddingLeft: showNext ? 14 : 0,
+        background: showNext ? "var(--white)" : "transparent",
+        borderLeft: showNext ? "3px solid var(--coral)" : "3px solid transparent",
+        marginLeft: showNext ? -16 : 0,
+        marginRight: showNext ? -16 : 0,
+        paddingRight: showNext ? 14 : 0,
+        cursor: showNext ? "pointer" : "default",
+        opacity: pressed && showNext ? 0.9 : 1,
+        transform: pressed && showNext ? "scale(0.99)" : "none",
         transition: "opacity .12s ease, transform .12s ease",
       }}
     >
@@ -82,7 +87,7 @@ function WorkoutRow({ time, name, tag, isNext }) {
       <span style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--charcoal)" }}>
         {name}
       </span>
-      {isNext ? (
+      {showNext ? (
         <span
           style={{
             fontFamily: "var(--font-sans)",
@@ -157,10 +162,57 @@ function TabBar({ active = "Home", onTab }) {
   );
 }
 
+const FALLBACK = {
+  greeting: "Welcome.",
+  date_label: "TODAY",
+  streak_days: 0,
+  steps: { value: 0, goal: 10000 },
+  calories: 0,
+  water_litres: 0,
+  today_sessions: [],
+};
+
 export default function DashboardScreen({ onTab }) {
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getDashboard()
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const d = data ?? FALLBACK;
+  const initial = (user?.name?.[0] ?? "A").toUpperCase();
+  const stepPct = d.steps.goal > 0 ? d.steps.value / d.steps.goal : 0;
+
+  const signOut = () => {
+    logout();
+    router.replace("/login");
+  };
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--muted)",
+          fontSize: 12,
+        }}
+      >
+        Loading…
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -171,6 +223,8 @@ export default function DashboardScreen({ onTab }) {
       >
         <BrandMark />
         <div
+          onClick={signOut}
+          title="Sign out"
           style={{
             width: 30,
             height: 30,
@@ -182,17 +236,17 @@ export default function DashboardScreen({ onTab }) {
             fontFamily: "var(--font-sans)",
             fontSize: 12,
             color: "var(--charcoal)",
+            cursor: "pointer",
           }}
         >
-          A
+          {initial}
         </div>
       </div>
 
-      {/* Date + streak + greeting */}
       <div style={{ padding: "26px 30px 0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <Label>SUN · 31 MAY</Label>
-          <Pill>9-Day Streak</Pill>
+          <Label>{d.date_label}</Label>
+          {d.streak_days > 0 && <Pill>{d.streak_days}-Day Streak</Pill>}
         </div>
         <h1
           style={{
@@ -205,24 +259,33 @@ export default function DashboardScreen({ onTab }) {
             lineHeight: 1.15,
           }}
         >
-          Good morning, Alex.
+          {d.greeting}
         </h1>
       </div>
 
-      {/* Stats */}
       <div style={{ padding: "30px 30px 0" }}>
         <Hairline />
-        <StatRow name="Steps" value="7,342" unit="/ 10,000" pct={0.73} />
-        <StatRow name="Calories" value="420" unit="kcal" />
-        <StatRow name="Water" value="1.8" unit="L" />
+        <StatRow
+          name="Steps"
+          value={d.steps.value.toLocaleString()}
+          unit={`/ ${d.steps.goal.toLocaleString()}`}
+          pct={stepPct}
+        />
+        <StatRow name="Calories" value={String(d.calories)} unit="kcal" />
+        <StatRow name="Water" value={String(d.water_litres)} unit="L" />
       </div>
 
-      {/* Today */}
       <div style={{ padding: "26px 30px 0" }}>
         <Label>Today</Label>
         <div style={{ padding: "12px 0 0" }}>
-          <WorkoutRow time="07:00" name="Morning run" isNext />
-          <WorkoutRow time="18:00" name="Upper body" tag="45m" />
+          {d.today_sessions.length === 0 && (
+            <div style={{ padding: "12px 0", fontSize: 12, color: "var(--muted)" }}>
+              Nothing scheduled today.
+            </div>
+          )}
+          {d.today_sessions.map((s, i) => (
+            <WorkoutRow key={i} {...s} />
+          ))}
         </div>
       </div>
 
