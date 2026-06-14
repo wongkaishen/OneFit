@@ -34,9 +34,10 @@
   /* Serif display — for calm/personal beats only: greetings, big numerals,
      emotional moments. NEVER for body, labels, buttons or data. */
   --font-serif: 'EB Garamond', Georgia, 'Times New Roman', serif;
-  /* Swappable roles (default to sans; Tweaks can point these at the serif). */
-  --font-greeting: var(--font-sans);
-  --font-numeral: var(--font-sans);
+  /* Personal-beats roles — EB Garamond on greetings, big numerals, milestone.
+     Inter for everything else. */
+  --font-greeting: var(--font-serif);
+  --font-numeral: var(--font-serif);
 
   /* ---- Type weights ---- */
   --w-regular: 400;  /* @kind font */
