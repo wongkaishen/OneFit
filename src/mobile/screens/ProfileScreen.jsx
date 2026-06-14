@@ -15,20 +15,23 @@ export default function ProfileScreen({ onBack }) {
   });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    me().then(setUser).catch(() => {});
-    getProfile()
-      .then((p) =>
-        setProfile({
-          height: String(p.height ?? ""),
-          weight: String(p.weight ?? ""),
-          body_fat_percent: String(p.body_fat_percent ?? ""),
-          fitness_goal: p.fitness_goal ?? "",
-          age: String(p.age ?? ""),
-        })
-      )
-      .catch(() => {});
+    Promise.all([
+      me().then(setUser).catch(() => {}),
+      getProfile()
+        .then((p) =>
+          setProfile({
+            height: String(p.height ?? ""),
+            weight: String(p.weight ?? ""),
+            body_fat_percent: String(p.body_fat_percent ?? ""),
+            fitness_goal: p.fitness_goal ?? "",
+            age: String(p.age ?? ""),
+          })
+        )
+        .catch(() => {}),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const set = (k) => (v) => setProfile((p) => ({ ...p, [k]: v }));
@@ -57,6 +60,28 @@ export default function ProfileScreen({ onBack }) {
     profile.height && profile.weight
       ? (Number(profile.weight) / (Number(profile.height) / 100) ** 2).toFixed(1)
       : "—";
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <div style={{ paddingTop: 12 }}>
+          <ScreenHeader title="Profile" onBack={onBack} />
+        </div>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--muted)",
+            fontSize: 12,
+          }}
+        >
+          Loading…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>

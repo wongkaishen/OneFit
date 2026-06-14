@@ -94,9 +94,13 @@ const MONTHS = [
 export default function CalendarScreen({ onBack }) {
   const [sessions, setSessions] = useState([]);
   const [cursor] = useState(new Date());
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getSessions().then(setSessions).catch(() => {});
+    getSessions()
+      .then(setSessions)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const upcoming = [...sessions]
@@ -109,6 +113,28 @@ export default function CalendarScreen({ onBack }) {
         new Date(`${b.scheduled_date}T${b.scheduled_time}`)
     )
     .slice(0, 3);
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <div style={{ paddingTop: 12 }}>
+          <ScreenHeader title="Schedule" onBack={onBack} />
+        </div>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--muted)",
+            fontSize: 12,
+          }}
+        >
+          Loading…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>

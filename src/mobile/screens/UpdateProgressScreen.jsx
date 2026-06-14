@@ -44,6 +44,7 @@ export default function UpdateProgressScreen({ onBack }) {
   const [bodyFat, setBodyFat] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const refresh = async () => {
     try {
@@ -54,7 +55,7 @@ export default function UpdateProgressScreen({ onBack }) {
     } catch {}
   };
   useEffect(() => {
-    refresh();
+    refresh().finally(() => setLoading(false));
   }, []);
 
   const save = async () => {
@@ -88,6 +89,29 @@ export default function UpdateProgressScreen({ onBack }) {
     v: e.weight,
     label: `W${17 + i}`,
   }));
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <div style={{ paddingTop: 12 }}>
+          <ScreenHeader title="Your progress" onBack={onBack} />
+        </div>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--muted)",
+            fontSize: 12,
+          }}
+        >
+          Loading…
+        </div>
+        <TabBar />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
