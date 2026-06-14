@@ -95,12 +95,13 @@ export default function ProfileScreen({ onBack }) {
         <div style={{ padding: "30px 30px 0" }}>
           <Label>Body metrics</Label>
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 22 }}>
-            <Field label="HEIGHT (CM)" value={profile.height} onChange={set("height")} />
-            <Field label="WEIGHT (KG)" value={profile.weight} onChange={set("weight")} />
+            <Field label="HEIGHT (CM)" value={profile.height} onChange={set("height")} numeric />
+            <Field label="WEIGHT (KG)" value={profile.weight} onChange={set("weight")} numeric />
             <Field
               label="BODY FAT %"
               value={profile.body_fat_percent}
               onChange={set("body_fat_percent")}
+              numeric
             />
             <div>
               <Label>BMI</Label>
@@ -128,7 +129,7 @@ export default function ProfileScreen({ onBack }) {
               value={profile.fitness_goal}
               onChange={set("fitness_goal")}
             />
-            <Field label="AGE" value={profile.age} onChange={set("age")} />
+            <Field label="AGE" value={profile.age} onChange={set("age")} numeric />
           </div>
         </div>
 

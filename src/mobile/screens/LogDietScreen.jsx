@@ -191,7 +191,8 @@ export default function LogDietScreen({ onBack }) {
           <Field
             label="CALORIES"
             value={form.calories}
-            onChange={(v) => setForm({ ...form, calories: v.replace(/\D/g, "") })}
+            onChange={(v) => setForm({ ...form, calories: v })}
+            numeric
           />
           <div style={{ display: "flex", gap: 8 }}>
             {MEAL_TIMES.map((m) => (

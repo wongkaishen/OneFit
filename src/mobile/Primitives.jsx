@@ -150,7 +150,7 @@ export function ScreenHeader({ title, onBack, right }) {
   );
 }
 
-export function Field({ label, value, placeholder, onChange, type = "text", caret }) {
+export function Field({ label, value, placeholder, onChange, type = "text", caret, numeric }) {
   return (
     <div>
       <Label>{label}</Label>
@@ -158,7 +158,16 @@ export function Field({ label, value, placeholder, onChange, type = "text", care
         type={type}
         value={value ?? ""}
         placeholder={placeholder}
-        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+        inputMode={numeric ? "decimal" : undefined}
+        onChange={
+          onChange
+            ? (e) => {
+                let v = e.target.value;
+                if (numeric) v = v.replace(/[^0-9.]/g, "");
+                onChange(v);
+              }
+            : undefined
+        }
         readOnly={!onChange}
         style={{
           display: "block",

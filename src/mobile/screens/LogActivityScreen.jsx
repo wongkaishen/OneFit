@@ -135,7 +135,8 @@ export default function LogActivityScreen({ onBack, onSave }) {
           <Field
             label="DURATION (MIN)"
             value={duration}
-            onChange={(v) => setDuration(v.replace(/\D/g, ""))}
+            onChange={setDuration}
+            numeric
           />
           <div>
             <Label>How did it feel?</Label>

@@ -128,8 +128,8 @@ export default function UpdateProgressScreen({ onBack }) {
         <div style={{ padding: "26px 30px 0" }}>
           <Label>Log new measurements</Label>
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 22 }}>
-            <Field label="WEIGHT (KG)" value={weight} onChange={setWeight} />
-            <Field label="BODY FAT %" value={bodyFat} onChange={setBodyFat} />
+            <Field label="WEIGHT (KG)" value={weight} onChange={setWeight} numeric />
+            <Field label="BODY FAT %" value={bodyFat} onChange={setBodyFat} numeric />
           </div>
         </div>
 

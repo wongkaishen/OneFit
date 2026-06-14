@@ -112,8 +112,8 @@ export default function RegisterScreen() {
         )}
         {step === 3 && (
           <>
-            <Field label="HEIGHT (CM)" value={form.height} onChange={set("height")} />
-            <Field label="WEIGHT (KG)" value={form.weight} onChange={set("weight")} />
+            <Field label="HEIGHT (CM)" value={form.height} onChange={set("height")} numeric />
+            <Field label="WEIGHT (KG)" value={form.weight} onChange={set("weight")} numeric />
           </>
         )}
       </div>
