@@ -1,9 +1,31 @@
+"use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { BrandMark, Label, Field, PrimaryButton } from "../Primitives";
+import { useAuth } from "../../auth/useAuth";
 
-export default function LoginScreen({ onSignIn }) {
+export default function LoginScreen() {
+  const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState("alex@onefit.com");
   const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setErr("");
+    setBusy(true);
+    try {
+      const user = await login(email, pw);
+      if (user.role === "gym_user") router.push("/dashboard");
+      else if (user.role === "wellness_specialist") router.push("/specialist/clients");
+      else router.push("/admin/dashboard");
+    } catch (e) {
+      setErr(e.detail || "Invalid email or password");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div
@@ -46,9 +68,15 @@ export default function LoginScreen({ onSignIn }) {
         />
       </div>
 
+      {err && (
+        <div style={{ marginTop: 16, color: "var(--coral)", fontSize: 12 }}>
+          {err}
+        </div>
+      )}
+
       <div style={{ marginTop: "auto" }}>
-        <PrimaryButton onClick={onSignIn}>
-          Sign in&nbsp;&nbsp;→
+        <PrimaryButton onClick={busy ? undefined : submit}>
+          {busy ? "Signing in…" : "Sign in  →"}
         </PrimaryButton>
         <div
           style={{
@@ -60,7 +88,12 @@ export default function LoginScreen({ onSignIn }) {
           }}
         >
           New here?{" "}
-          <span style={{ color: "var(--charcoal)", cursor: "pointer" }}>Join us</span>
+          <span
+            style={{ color: "var(--charcoal)", cursor: "pointer" }}
+            onClick={() => router.push("/register")}
+          >
+            Join us
+          </span>
         </div>
       </div>
     </div>
