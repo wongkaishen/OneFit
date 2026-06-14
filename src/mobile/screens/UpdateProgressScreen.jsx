@@ -48,10 +48,12 @@ export default function UpdateProgressScreen({ onBack }) {
 
   const refresh = async () => {
     try {
-      setEntries(await getProgress());
+      const r = await getProgress();
+      setEntries(Array.isArray(r) ? r : []);
     } catch {}
     try {
-      setMilestones(await getMilestones());
+      const r = await getMilestones();
+      setMilestones(Array.isArray(r) ? r : []);
     } catch {}
   };
   useEffect(() => {

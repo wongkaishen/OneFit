@@ -98,7 +98,7 @@ export default function CalendarScreen({ onBack }) {
 
   useEffect(() => {
     getSessions()
-      .then(setSessions)
+      .then((r) => setSessions(Array.isArray(r) ? r : []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

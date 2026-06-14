@@ -133,7 +133,12 @@ export default function DashboardScreen() {
       .finally(() => setLoading(false));
   }, []);
 
-  const d = data ?? FALLBACK;
+  const d = {
+    ...FALLBACK,
+    ...(data ?? {}),
+    steps: { ...FALLBACK.steps, ...(data?.steps ?? {}) },
+    today_sessions: data?.today_sessions ?? FALLBACK.today_sessions,
+  };
   const initial = (user?.name?.[0] ?? "A").toUpperCase();
   const stepPct = d.steps.goal > 0 ? d.steps.value / d.steps.goal : 0;
 
