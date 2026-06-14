@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { ScreenHeader, Label, Hairline, Field, PrimaryButton } from "../Primitives";
 import { logActivity } from "../../api/gymUser";
+import TabBar from "../TabBar";
 
 function BigStat({ value, label }) {
   return (
@@ -182,11 +183,12 @@ export default function LogActivityScreen({ onBack, onSave }) {
         </div>
       )}
 
-      <div style={{ padding: "0 30px 30px" }}>
+      <div style={{ padding: "0 30px 16px" }}>
         <PrimaryButton onClick={busy ? undefined : submit}>
           {busy ? "Saving…" : "Save entry"}
         </PrimaryButton>
       </div>
+      <TabBar />
     </div>
   );
 }

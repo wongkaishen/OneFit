@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { ScreenHeader, Label, Field, Hairline, PrimaryButton } from "../Primitives";
 import { getProgress, logProgress, getMilestones } from "../../api/gymUser";
+import TabBar from "../TabBar";
 
 function BarChart({ data, height = 110 }) {
   if (data.length === 0) return null;
@@ -172,11 +173,12 @@ export default function UpdateProgressScreen({ onBack }) {
         )}
       </div>
 
-      <div style={{ padding: "20px 30px 30px" }}>
+      <div style={{ padding: "20px 30px 16px" }}>
         <PrimaryButton onClick={busy || !weight ? undefined : save}>
           {busy ? "Saving…" : "Save progress"}
         </PrimaryButton>
       </div>
+      <TabBar />
     </div>
   );
 }

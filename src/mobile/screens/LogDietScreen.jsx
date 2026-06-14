@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { ScreenHeader, Label, Field, Hairline, PrimaryButton } from "../Primitives";
 import { logDiet } from "../../api/gymUser";
 import CalorieRing from "../components/CalorieRing";
+import TabBar from "../TabBar";
 
 function MacroBar({ label, value, pct }) {
   return (
@@ -223,7 +224,7 @@ export default function LogDietScreen({ onBack }) {
         </div>
       )}
 
-      <div style={{ padding: "20px 30px 30px" }}>
+      <div style={{ padding: "20px 30px 16px" }}>
         {adding ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <PrimaryButton onClick={busy || !form.food_item ? undefined : submitMeal}>
@@ -253,6 +254,7 @@ export default function LogDietScreen({ onBack }) {
           </PrimaryButton>
         )}
       </div>
+      <TabBar />
     </div>
   );
 }

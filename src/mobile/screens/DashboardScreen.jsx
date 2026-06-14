@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { BrandMark, Label, Hairline, Pill } from "../Primitives";
 import { getDashboard } from "../../api/gymUser";
 import { useAuth } from "../../auth/useAuth";
+import TabBar from "../TabBar";
 
 function StatRow({ name, value, unit, pct }) {
   return (
@@ -109,59 +110,6 @@ function WorkoutRow({ time, name, tag, isNext, next }) {
   );
 }
 
-function TabBar({ active = "Home", onTab }) {
-  const tabs = ["Home", "Train", "Eat", "Stats"];
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        padding: "14px 36px 22px",
-        borderTop: "1px solid var(--border)",
-        background: "var(--cream)",
-      }}
-    >
-      {tabs.map((t) => {
-        const isActive = t === active;
-        return (
-          <div
-            key={t}
-            onClick={() => onTab?.(t)}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 6,
-              cursor: "pointer",
-            }}
-          >
-            <span
-              style={{
-                width: 4,
-                height: 4,
-                borderRadius: "50%",
-                background: isActive ? "var(--coral)" : "transparent",
-              }}
-            />
-            <span
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontWeight: 700,
-                fontSize: 9,
-                letterSpacing: "1.5px",
-                textTransform: "uppercase",
-                color: isActive ? "var(--coral)" : "var(--muted)",
-              }}
-            >
-              {t}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 const FALLBACK = {
   greeting: "Welcome.",
   date_label: "TODAY",
@@ -172,7 +120,7 @@ const FALLBACK = {
   today_sessions: [],
 };
 
-export default function DashboardScreen({ onTab }) {
+export default function DashboardScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [data, setData] = useState(null);
@@ -290,7 +238,7 @@ export default function DashboardScreen({ onTab }) {
       </div>
 
       <div style={{ marginTop: "auto" }}>
-        <TabBar active="Home" onTab={onTab} />
+        <TabBar />
       </div>
     </div>
   );
