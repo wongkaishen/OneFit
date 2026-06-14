@@ -8,7 +8,10 @@ export default function Home() {
   const { user, loading } = useAuth();
   useEffect(() => {
     if (loading) return;
-    router.replace(user ? "/dashboard" : "/login");
+    if (!user) router.replace("/login");
+    else if (user.role === "gym_user") router.replace("/dashboard");
+    else if (user.role === "wellness_specialist") router.replace("/specialist/clients");
+    else if (user.role === "admin") router.replace("/admin/dashboard");
   }, [user, loading, router]);
   return null;
 }
