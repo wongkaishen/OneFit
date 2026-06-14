@@ -1,0 +1,218 @@
+/* ============================================================
+   OneFit — Design System Foundations
+   Colors + Typography tokens (base + semantic)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
+:root {
+  /* ---- Base color palette ---- */
+  --cream:        #FAF6F0;  /* primary background */
+  --charcoal:     #1F1D1B;  /* body text, hairlines, dark buttons */
+  --charcoal-deep:#2D2A26;  /* phone bezel, notch, deepest UI */
+  --warm-red:     #B94838;  /* brand mark ONLY */
+  --coral:        #E85D4A;  /* primary CTAs, streaks, celebration */
+  --muted:        #8A857D;  /* secondary text, labels */
+  --subtle:       #5C5852;  /* tertiary text */
+  --border:       #D8D0C2;  /* hairline dividers */
+  --white:        #FFFFFF;
+
+  /* ---- Semantic color roles ---- */
+  --bg:           var(--cream);
+  --fg1:          var(--charcoal);  /* primary text */
+  --fg2:          var(--muted);     /* secondary text */
+  --fg3:          var(--subtle);    /* tertiary text */
+  --brand:        var(--warm-red);
+  --accent:       var(--coral);
+  --hairline:     var(--border);
+  --on-accent:    var(--charcoal);  /* text sitting on coral CTAs */
+  --on-dark:      var(--cream);     /* text sitting on charcoal */
+
+  /* ---- Type family ---- */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Serif display — for calm/personal beats only: greetings, big numerals,
+     emotional moments. NEVER for body, labels, buttons or data. */
+  --font-serif: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  /* Swappable roles (default to sans; Tweaks can point these at the serif). */
+  --font-greeting: var(--font-sans);
+  --font-numeral: var(--font-sans);
+
+  /* ---- Type weights ---- */
+  --w-regular: 400;  /* @kind font */
+  --w-medium:  500;  /* @kind font */ /* labels (uppercase, tracked) */
+  --w-semibold:600;  /* @kind font */
+  --w-bold:    700;  /* @kind font */ /* emphasis, numerals, buttons */
+
+  /* ---- Type scale (px) — observed from the OneFit screens ---- */
+  --t-display:   140px;  /* milestone numeral */
+  --t-h1:        22px;   /* "Good morning, Alex." / "Welcome back." */
+  --t-h2:        18px;   /* section headings */
+  --t-numeral:   28px;   /* big stat numbers (steps, kcal, calorie total) */
+  --t-body:      14px;   /* body / field values */
+  --t-small:     12px;   /* button text, fine print */
+  --t-caption:   11px;   /* meta, links, status pills */
+  --t-label:     9px;    /* uppercase category labels */
+
+  /* ---- Letter-spacing ---- */
+  --ls-label:   1.5px;   /* uppercase 9px labels */
+  --ls-button:  2px;     /* uppercase buttons / pills */
+  --ls-milestone: 4px;   /* the loud "MILESTONE" eyebrow */
+  --ls-tight:   -0.5px;  /* large display headings */
+
+  /* ---- Layout ---- */
+  --hairline-w: 1px;
+  --gutter:     30px;    /* screen side padding */
+  --btn-h:      48px;    /* bottom-anchored primary button height */
+  --radius-phone: 38px;  /* device corner */
+}
+
+/* ============================================================
+   Semantic type classes
+   ============================================================ */
+
+.t-display {
+  font-family: var(--font-sans);
+  font-weight: var(--w-bold);
+  font-size: var(--t-display);
+  line-height: 0.9;
+  letter-spacing: var(--ls-tight);
+  color: var(--fg1);
+}
+
+.t-h1 {
+  font-family: var(--font-sans);
+  font-weight: var(--w-regular);
+  font-size: var(--t-h1);
+  line-height: 1.15;
+  letter-spacing: var(--ls-tight);
+  color: var(--fg1);
+}
+
+/* Serif greeting — the personal/emotional beat. EB Garamond, slightly larger
+   than the sans h1 because serif x-height reads smaller. */
+.t-serif-greeting {
+  font-family: var(--font-serif);
+  font-weight: var(--w-regular);
+  font-size: 27px;
+  line-height: 1.1;
+  letter-spacing: 0;
+  color: var(--fg1);
+}
+
+/* Serif display numeral — for the loud/emotional moments (e.g. milestone 100). */
+.t-serif-display {
+  font-family: var(--font-serif);
+  font-weight: var(--w-medium);
+  font-size: var(--t-display);
+  line-height: 0.9;
+  letter-spacing: 0;
+  color: var(--fg1);
+}
+
+.t-h2 {
+  font-family: var(--font-sans);
+  font-weight: var(--w-semibold);
+  font-size: var(--t-h2);
+  line-height: 1.2;
+  color: var(--fg1);
+}
+
+.t-numeral {
+  font-family: var(--font-sans);
+  font-weight: var(--w-bold);
+  font-size: var(--t-numeral);
+  line-height: 1;
+  color: var(--fg1);
+}
+
+.t-body {
+  font-family: var(--font-sans);
+  font-weight: var(--w-regular);
+  font-size: var(--t-body);
+  line-height: 1.4;
+  color: var(--fg1);
+}
+
+.t-small {
+  font-family: var(--font-sans);
+  font-weight: var(--w-regular);
+  font-size: var(--t-small);
+  line-height: 1.3;
+  color: var(--fg1);
+}
+
+.t-caption {
+  font-family: var(--font-sans);
+  font-weight: var(--w-regular);
+  font-size: var(--t-caption);
+  line-height: 1.3;
+  color: var(--fg2);
+}
+
+/* Uppercase tracked category label — the workhorse meta style */
+.t-label {
+  font-family: var(--font-sans);
+  font-weight: var(--w-medium);
+  font-size: var(--t-label);
+  line-height: 1;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--fg2);
+}
+
+/* ============================================================
+   Signature components
+   ============================================================ */
+
+/* Bottom-anchored primary button */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--btn-h);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-sans);
+  font-weight: var(--w-bold);
+  font-size: var(--t-small);
+  letter-spacing: var(--ls-button);
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+}
+
+/* Dark variant (used on the loud celebration screen) */
+.btn-dark {
+  background: var(--charcoal);
+  color: var(--on-dark);
+}
+
+/* Outlined variant (e.g. "+ Add meal") */
+.btn-outline {
+  background: var(--white);
+  color: var(--accent);
+  border: 2px solid var(--accent);
+}
+
+/* Status pill — e.g. "9-DAY STREAK" */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent);
+  color: var(--charcoal);
+  font-family: var(--font-sans);
+  font-weight: var(--w-bold);
+  font-size: var(--t-label);
+  letter-spacing: var(--ls-button);
+  text-transform: uppercase;
+  padding: 5px 8px;
+}
+
+/* Hairline divider */
+.hairline {
+  height: var(--hairline-w);
+  background: var(--hairline);
+  border: none;
+  width: 100%;
+}
