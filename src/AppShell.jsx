@@ -1,3 +1,4 @@
+"use client";
 import React, { useEffect, useRef, useState } from "react";
 import PhoneFrame from "./mobile/PhoneFrame";
 import LoginScreen from "./mobile/screens/LoginScreen";
