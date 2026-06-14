@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { ScreenHeader, Label, Hairline, PrimaryButton } from "../Primitives";
 import { createPlan } from "../../api/gymUser";
 import { generateWorkoutPlan } from "../../api/ai";
+import HealthDisclaimerModal from "../components/HealthDisclaimerModal";
 
 const GOALS = ["Lose fat", "Build muscle", "Endurance", "Maintain"];
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -13,6 +14,8 @@ export default function CreatePlanScreen({ onBack, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [comingSoon, setComingSoon] = useState(false);
   const [err, setErr] = useState("");
+  const [askedDisclaimer, setAskedDisclaimer] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   const toggleDay = (i) => {
     setDays((d) => d.map((v, idx) => (idx === i ? !v : v)));
@@ -160,10 +163,32 @@ export default function CreatePlanScreen({ onBack, onSaved }) {
           gap: 12,
         }}
       >
-        <PrimaryButton onClick={busy ? undefined : comingSoon ? saveManual : generate}>
+        <PrimaryButton
+          onClick={
+            busy
+              ? undefined
+              : comingSoon
+              ? saveManual
+              : () => {
+                  if (askedDisclaimer) return generate();
+                  setShowDisclaimer(true);
+                }
+          }
+        >
           {busy ? "Working…" : comingSoon ? "Save plan" : "Generate plan ✨"}
         </PrimaryButton>
       </div>
+
+      {showDisclaimer && (
+        <HealthDisclaimerModal
+          onAgree={() => {
+            setAskedDisclaimer(true);
+            setShowDisclaimer(false);
+            generate();
+          }}
+          onCancel={() => setShowDisclaimer(false)}
+        />
+      )}
     </div>
   );
 }
