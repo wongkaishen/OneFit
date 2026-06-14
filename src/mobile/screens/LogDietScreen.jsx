@@ -1,5 +1,7 @@
-import React from "react";
-import { ScreenHeader, Label, Hairline, PrimaryButton } from "../Primitives";
+"use client";
+import React, { useState } from "react";
+import { ScreenHeader, Label, Field, Hairline, PrimaryButton } from "../Primitives";
+import { logDiet } from "../../api/gymUser";
 
 function MacroBar({ label, value, pct }) {
   return (
@@ -74,7 +76,34 @@ function MealRow({ name, time, kcal, items }) {
   );
 }
 
-export default function LogDietScreen({ onBack, onAdd }) {
+const MEAL_TIMES = ["breakfast", "lunch", "dinner", "snack"];
+
+export default function LogDietScreen({ onBack }) {
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ meal_time: "snack", food_item: "", calories: "" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const submitMeal = async () => {
+    setErr("");
+    setBusy(true);
+    try {
+      await logDiet({
+        meal_time: form.meal_time,
+        food_item: form.food_item,
+        calories: Number(form.calories) || 0,
+        entry_mode: "quick",
+        log_date: new Date().toISOString().slice(0, 10),
+      });
+      setForm({ meal_time: "snack", food_item: "", calories: "" });
+      setAdding(false);
+    } catch (e) {
+      setErr(e.detail || "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ paddingTop: 12 }}>
@@ -132,10 +161,85 @@ export default function LogDietScreen({ onBack, onAdd }) {
         </div>
       </div>
 
+      {adding && (
+        <div
+          style={{
+            padding: "16px 30px 0",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+            borderTop: "1px solid var(--border)",
+          }}
+        >
+          <Field
+            label="FOOD"
+            value={form.food_item}
+            onChange={(v) => setForm({ ...form, food_item: v })}
+            placeholder="e.g. Apple"
+          />
+          <Field
+            label="CALORIES"
+            value={form.calories}
+            onChange={(v) => setForm({ ...form, calories: v.replace(/\D/g, "") })}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            {MEAL_TIMES.map((m) => (
+              <button
+                key={m}
+                onClick={() => setForm({ ...form, meal_time: m })}
+                style={{
+                  flex: 1,
+                  height: 36,
+                  background: form.meal_time === m ? "var(--charcoal)" : "transparent",
+                  color: form.meal_time === m ? "var(--cream)" : "var(--charcoal)",
+                  border:
+                    form.meal_time === m
+                      ? "1px solid var(--charcoal)"
+                      : "1px solid var(--border)",
+                  fontFamily: "var(--font-sans)",
+                  fontWeight: form.meal_time === m ? 600 : 400,
+                  fontSize: 11,
+                  textTransform: "capitalize",
+                  cursor: "pointer",
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          {err && <div style={{ color: "var(--coral)", fontSize: 12 }}>{err}</div>}
+        </div>
+      )}
+
       <div style={{ padding: "20px 30px 30px" }}>
-        <PrimaryButton variant="outline" onClick={onAdd}>
-          + Add meal
-        </PrimaryButton>
+        {adding ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <PrimaryButton onClick={busy || !form.food_item ? undefined : submitMeal}>
+              {busy ? "Saving…" : "Save meal"}
+            </PrimaryButton>
+            <button
+              onClick={() => {
+                setAdding(false);
+                setErr("");
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                fontFamily: "var(--font-sans)",
+                fontSize: 12,
+                color: "var(--muted)",
+                cursor: "pointer",
+                padding: 8,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <PrimaryButton variant="outline" onClick={() => setAdding(true)}>
+            + Add meal
+          </PrimaryButton>
+        )}
       </div>
     </div>
   );
