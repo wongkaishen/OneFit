@@ -20,14 +20,48 @@ The frontend talks **only to Wong's FastAPI**. It does *not* touch Supabase dire
 
 ## Tech stack (design branch)
 
-- **Next.js** (App Router) + React — *currently being migrated from Vite*
-- Deploys to **Vercel** (per SDS §5)
-- Design system in `src/styles/tokens.css` — warm cream + coral, Inter + EB Garamond, 1px hairlines, no cards, no shadows, sharp corners
-- Components: `src/mobile/` (mobile, 390-wide phone frame), `src/web/` (1440-wide desktop)
+- **Next.js 14** (App Router) + React 18 + TypeScript. Migrated off Vite.
+- **PWA**: `next-pwa` service worker, `public/manifest.json`, app icons (`public/icon*.png`/`.svg`), theme color `#B94838`. Installable + offline.
+- Deploys to **Vercel** (per SDS §5).
+- Design system in `src/styles/tokens.css` — warm cream + coral, Inter + EB Garamond, 1px hairlines, no cards, no shadows, sharp corners.
 
-## Current state
+## Architecture — responsive web app (READ THIS)
 
-5 of 9 Gym User mobile screens built (Login, Dashboard, Log Activity, Log Diet, Milestone). All 6 web screens drafted (3 Wellness Specialist + 3 Admin). Tweaks panel for font (Inter ↔ EB Garamond) and accent color. All data is hardcoded — no API calls yet.
+**Big pivot (2026-06-15):** this is NOT a phone-only app anymore. It is **one consistent, desktop-first responsive website** for all three actors (Gym User included). Decisions the user locked:
+
+- **Consistent sidebar shell for every actor** — the same `WebShell` the Wellness Specialist / Admin dashboards use. `src/web/WebShell.jsx` is now responsive: fixed sidebar rail on desktop, slide-in hamburger drawer below **600px** (the breakpoint). CSS lives in `src/styles/app.css` (`.ws-*` classes).
+- **Desktop-first, 600px breakpoint.** Default styles = desktop; `@media (max-width: 600px)` collapses to mobile (single column, drawer nav).
+- **Multi-column desktop layouts** that stack to one column on mobile. Utilities in `app.css`: `.og-kpi` (3-col stat strip → stacked), `.og-cols` (1.4fr/1fr), `.og-cols-even` (1fr/1fr).
+- **`src/web/GymShell.jsx`** wraps `WebShell` for the Gym User: nav `Home/Train/Eat/Progress/Plan/Schedule/Profile` → routes, coral accent, role "Gym User", avatar = sign out.
+- Gym User screens still live in `src/mobile/screens/*.jsx` (kept the folder name) but each now renders `<GymShell>` and reuses `src/web/WebPrimitives.jsx` (WButton/WChip/WBadge/WProgress/WBarChart/WLabel) — same visual language as Specialist/Admin. **No new design language; reuse WebPrimitives.**
+- **Login / Register / Milestone** intentionally use `src/mobile/MobileShell.tsx` (centered column, no sidebar) — pre-auth pages + the celebration moment.
+
+## Current state (2026-06-15)
+
+All 9 Gym User screens are wired to Wong's API + converted to the responsive web shell:
+- **Dashboard** (flagship): KPI strip + Today/Quick-actions, multi-column.
+- **Train / Eat / Progress / Plan / Profile / Schedule**: GymShell, multi-column desktop → stacked mobile.
+- **Login / Register / Milestone**: centered, no sidebar.
+- Auth (`src/auth/`): `AuthProvider` (JWT in localStorage, `/auth/me` on load), `RequireAuth` role guard, role-based landing redirect in `src/app/page.tsx`.
+- **Demo mode**: visit any URL with `?demo=1` → bypasses backend, signs in as a fake gym user with seed data (`src/api/demo.ts`). A "DEMO MODE" badge (bottom-right, `src/components/DemoBadge.tsx`) shows + lets you exit. Use this to preview without Wong's backend running.
+
+**NOT done yet — next up:**
+1. Wire the 3 Wellness Specialist screens (`src/web/screens/Client*.jsx`, `CreateMealPlan.jsx`) into `/specialist/*` routes (+ `RequireAuth role="wellness_specialist"`).
+2. Wire the 3 Admin screens (`src/web/screens/Admin*.jsx`, `UserManagement.jsx`, `ContentPrograms.jsx`) into `/admin/*` routes.
+3. Make their table / fixed-grid content responsive (the shell already is).
+4. Playwright smoke test all screens at desktop + mobile.
+
+## Key files
+
+- `src/web/WebShell.jsx` — responsive sidebar shell (all actors)
+- `src/web/GymShell.jsx` — Gym User wrapper around WebShell
+- `src/web/WebPrimitives.jsx` — shared desktop components
+- `src/mobile/screens/*.jsx` — the 9 Gym User screens
+- `src/web/screens/*.jsx` — 6 Specialist/Admin screens (built, NOT yet routed)
+- `src/api/` — `client.ts` (fetch+JWT+demo), `auth.ts`, `gymUser.ts`, `notifications.ts`, `ai.ts`, `types.ts`, `demo.ts`
+- `src/auth/` — `AuthProvider.tsx`, `useAuth.ts`, `RequireAuth.tsx`
+- `src/styles/` — `tokens.css` (design tokens), `app.css` (shell + responsive utilities)
+- `docs/superpowers/plans/2026-06-14-mobile-gym-user-frontend.md` — the original (now partly superseded) plan
 
 ## Backend API (Wong's, on Foundation branch)
 
@@ -72,8 +106,8 @@ Base URL via env var `NEXT_PUBLIC_API_BASE_URL` (default `http://localhost:8000`
 
 - Frontend NEVER calls Supabase. All data flows through Wong's FastAPI.
 - Base URL is env var, never hardcoded.
-- **No automated tests** — manual click-through verification only (pragmatic uni-project choice).
-- **Mobile-first build order:** finish 9 Gym User mobile screens + wire to API before circling back to the web screens.
+- **No automated tests** — manual click-through verification only (pragmatic uni-project choice). Verify with `npm run build` + Playwright (`playwright-cli`) screenshots at desktop (1440) and mobile (390).
+- **Responsive, desktop-first, 600px breakpoint.** Every actor uses the same sidebar shell. Reuse `WebShell` / `GymShell` / `WebPrimitives` — do not reintroduce the phone frame.
 - Visual rules: cream `#FAF6F0` + charcoal `#1F1D1B`, coral `#E85D4A` for active only, warm-red `#B94838` brand mark only, 1px hairlines, no cards/shadows/rounded corners. EB Garamond reserved for personal/emotional beats (greetings, big numerals, milestone).
 - Copy: sentence case + period for headings/body; UPPERCASE tracked for labels/buttons/pills; middots `·` connect attribute lists.
 
@@ -99,6 +133,8 @@ Base URL via env var `NEXT_PUBLIC_API_BASE_URL` (default `http://localhost:8000`
 
 ```bash
 npm install          # first time / after pulling new deps
-npm run dev          # dev server (Vite :5173, Next.js :3000 after migration)
-npm run build        # production build
+npm run dev          # dev server → http://localhost:3000 (falls back to :3001 if busy)
+npm run build        # production build (service worker only built here, not in dev)
 ```
+
+Preview without the backend: open `http://localhost:3000/dashboard?demo=1` (demo mode).
