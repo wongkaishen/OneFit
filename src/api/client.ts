@@ -1,7 +1,9 @@
 import type { ApiError } from "./types";
+import { getDemoResponse } from "./demo";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const TOKEN_KEY = "onefit-jwt";
+const DEMO_KEY = "onefit-demo";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -14,6 +16,17 @@ export function setToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+export function isDemoMode(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(DEMO_KEY) === "1";
+}
+
+export function setDemoMode(on: boolean) {
+  if (typeof window === "undefined") return;
+  if (on) localStorage.setItem(DEMO_KEY, "1");
+  else localStorage.removeItem(DEMO_KEY);
+}
+
 interface RequestOpts {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
@@ -22,6 +35,11 @@ interface RequestOpts {
 
 export async function request<T>(path: string, opts: RequestOpts = {}): Promise<T> {
   const { method = "GET", body, auth = true } = opts;
+
+  if (isDemoMode()) {
+    return getDemoResponse<T>(method, path, body);
+  }
+
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (auth) {
     const token = getToken();

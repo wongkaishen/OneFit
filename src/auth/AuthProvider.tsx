@@ -2,6 +2,7 @@
 
 import { createContext, useEffect, useState, ReactNode } from "react";
 import * as authApi from "../api/auth";
+import { setDemoMode, setToken } from "../api/client";
 import type { User } from "../api/types";
 
 interface AuthContextValue {
@@ -38,6 +39,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const demo = params.get("demo");
+      if (demo === "1") {
+        setDemoMode(true);
+        setToken("demo-jwt-token"); // ensure the client attaches a Bearer header
+      } else if (demo === "0") {
+        setDemoMode(false);
+        setToken(null);
+      }
+    }
     refresh();
   }, []);
 
