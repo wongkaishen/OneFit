@@ -131,6 +131,18 @@ const DEMO_SESSIONS: WorkoutSession[] = [
   },
 ];
 
+// Admin user roster — mutable within a demo session so status changes stick.
+const DEMO_USERS: User[] = [
+  { user_id: "u1", name: "Alex Tan", email: "alex@onefit.com", role: "gym_user", status: "active", created_at: "2026-01-12T08:00:00Z" },
+  { user_id: "u2", name: "Jordan Mills", email: "jordan@onefit.com", role: "wellness_specialist", status: "active", created_at: "2025-08-03T08:00:00Z" },
+  { user_id: "u3", name: "Mara Okafor", email: "mara@onefit.com", role: "gym_user", status: "active", created_at: "2026-03-19T08:00:00Z" },
+  { user_id: "u4", name: "Sam Whitfield", email: "sam.w@onefit.com", role: "gym_user", status: "suspended", created_at: "2025-11-22T08:00:00Z" },
+  { user_id: "u5", name: "Lena Vasquez", email: "lena@onefit.com", role: "wellness_specialist", status: "active", created_at: "2025-06-30T08:00:00Z" },
+  { user_id: "u6", name: "Devin Brooks", email: "devin@onefit.com", role: "gym_user", status: "active", created_at: "2026-02-14T08:00:00Z" },
+  { user_id: "u7", name: "Priya Nair", email: "priya@onefit.com", role: "gym_user", status: "pending", created_at: "2026-04-08T08:00:00Z" },
+  { user_id: "u8", name: "Theo Holt", email: "theo@onefit.com", role: "gym_user", status: "active", created_at: "2025-12-05T08:00:00Z" },
+];
+
 function authResponse(): AuthResponse {
   return { access_token: "demo-jwt-token", token_type: "bearer", user: demoUser() };
 }
@@ -193,6 +205,16 @@ export async function getDemoResponse<T>(
     if (method === "POST")
       return { session_id: "demo-session", status: "scheduled", ...(body as object) } as T;
     return DEMO_SESSIONS as unknown as T;
+  }
+
+  // Admin — user management (mutable so suspend/approve persists in-session)
+  if (path === "/admin/users") return DEMO_USERS as unknown as T;
+  if (path.startsWith("/admin/users/") && path.endsWith("/status")) {
+    const id = path.split("/")[3];
+    const u = DEMO_USERS.find((x) => x.user_id === id);
+    const newStatus = (body as { status?: User["status"] }).status;
+    if (u && newStatus) u.status = newStatus;
+    return (u ?? {}) as unknown as T;
   }
 
   // Notifications

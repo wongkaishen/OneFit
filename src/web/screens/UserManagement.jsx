@@ -1,36 +1,75 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import WebShell, { WAvatar } from "../WebShell";
 import { WLabel, WChip, WBadge, WHairline } from "../WebPrimitives";
 import { ADMIN_NAV } from "./AdminDashboard";
-
-const USERS = [
-  { name: "Alex Tan", role: "Member", joined: "Jan 2026", status: "Active", last: "2h ago" },
-  { name: "Jordan Mills", role: "Specialist", joined: "Aug 2025", status: "Active", last: "Today" },
-  { name: "Mara Okafor", role: "Member", joined: "Mar 2026", status: "Active", last: "Today" },
-  { name: "Sam Whitfield", role: "Member", joined: "Nov 2025", status: "Suspended", last: "5d ago" },
-  { name: "Lena Vasquez", role: "Specialist", joined: "Jun 2025", status: "Active", last: "1h ago" },
-  { name: "Devin Brooks", role: "Member", joined: "Feb 2026", status: "Active", last: "1d ago" },
-  { name: "Priya Nair", role: "Member", joined: "Apr 2026", status: "Pending", last: "3h ago" },
-  { name: "Theo Holt", role: "Member", joined: "Dec 2025", status: "Active", last: "6h ago" },
-];
+import { getUsers, setUserStatus } from "../../api/admin";
 
 const ROLES = ["All roles", "Members", "Specialists", "Admins"];
-const STATUS_TONE = { Active: "good", Suspended: "flag", Pending: "neutral" };
-const ACTIONS = ["Suspend", "Activate", "Export"];
+const ROLE_FILTER = {
+  "All roles": null,
+  Members: "gym_user",
+  Specialists: "wellness_specialist",
+  Admins: "admin",
+};
+const ROLE_LABEL = { gym_user: "Member", wellness_specialist: "Specialist", admin: "Admin" };
+const STATUS_LABEL = { active: "Active", suspended: "Suspended", pending: "Pending" };
+const STATUS_TONE = { active: "good", suspended: "flag", pending: "neutral" };
 const GRID = "32px 2fr 1.2fr 1.2fr 1.2fr 1fr 40px";
 
+function joined(createdAt) {
+  if (!createdAt) return "—";
+  const d = new Date(createdAt);
+  return isNaN(d) ? "—" : d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
+// The status action available for a user, given its current status.
+function nextAction(status) {
+  if (status === "pending") return { label: "Approve", to: "active" };
+  if (status === "suspended") return { label: "Reinstate", to: "active" };
+  return { label: "Suspend", to: "suspended" };
+}
+
 export default function UserManagement({ onNav }) {
-  const [role, setRole] = useState("All roles");
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [roleFilter, setRoleFilter] = useState("All roles");
   const [sel, setSel] = useState(new Set());
   const [menu, setMenu] = useState(null);
 
-  const toggle = (i) => {
+  const refresh = async () => {
+    try {
+      const r = await getUsers();
+      setUsers(Array.isArray(r) ? r : []);
+    } catch {
+      setUsers([]);
+    }
+  };
+  useEffect(() => {
+    refresh().finally(() => setLoading(false));
+  }, []);
+
+  const toggle = (id) => {
     const next = new Set(sel);
-    next.has(i) ? next.delete(i) : next.add(i);
+    next.has(id) ? next.delete(id) : next.add(id);
     setSel(next);
   };
 
+  // Optimistically flip status, then persist; reload on failure.
+  const applyStatus = async (ids, to) => {
+    setMenu(null);
+    const idSet = new Set(ids);
+    setUsers((prev) => prev.map((u) => (idSet.has(u.user_id) ? { ...u, status: to } : u)));
+    try {
+      await Promise.all(ids.map((id) => setUserStatus(id, to)));
+    } catch {
+      refresh();
+    }
+  };
+
+  const wanted = ROLE_FILTER[roleFilter];
+  const list = wanted ? users.filter((u) => u.role === wanted) : users;
   const hasSel = sel.size > 0;
+  const selIds = [...sel];
 
   return (
     <WebShell
@@ -47,12 +86,12 @@ export default function UserManagement({ onNav }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <div style={{ display: "flex", gap: 10 }}>
             {ROLES.map((r) => (
-              <WChip key={r} active={r === role} onClick={() => setRole(r)}>
+              <WChip key={r} active={r === roleFilter} onClick={() => setRoleFilter(r)}>
                 {r}
               </WChip>
             ))}
           </div>
-          <WLabel>{USERS.length} users</WLabel>
+          <WLabel>{loading ? "Loading…" : `${list.length} users`}</WLabel>
         </div>
 
         <div
@@ -73,9 +112,18 @@ export default function UserManagement({ onNav }) {
             {hasSel ? `${sel.size} selected` : "Select rows for bulk actions"}
           </span>
           <div style={{ display: "flex", gap: 18 }}>
-            {ACTIONS.map((a) => (
+            {[
+              { label: "Suspend", to: "suspended" },
+              { label: "Activate", to: "active" },
+            ].map((a) => (
               <span
-                key={a}
+                key={a.label}
+                onClick={() => {
+                  if (hasSel) {
+                    applyStatus(selIds, a.to);
+                    setSel(new Set());
+                  }
+                }}
                 style={{
                   fontFamily: "var(--font-sans)",
                   fontWeight: 700,
@@ -86,7 +134,7 @@ export default function UserManagement({ onNav }) {
                   cursor: hasSel ? "pointer" : "default",
                 }}
               >
-                {a}
+                {a.label}
               </span>
             ))}
           </div>
@@ -107,15 +155,28 @@ export default function UserManagement({ onNav }) {
           <WLabel>Role</WLabel>
           <WLabel>Joined</WLabel>
           <WLabel>Status</WLabel>
-          <WLabel>Last active</WLabel>
+          <WLabel>Email</WLabel>
           <span />
         </div>
         <WHairline />
 
-        {USERS.map((u, i) => {
-          const selected = sel.has(i);
+        {loading && (
+          <div style={{ padding: "28px 4px", fontSize: 13, color: "var(--muted)" }}>
+            Loading users…
+          </div>
+        )}
+
+        {!loading && list.length === 0 && (
+          <div style={{ padding: "28px 4px", fontSize: 13, color: "var(--muted)" }}>
+            No users found.
+          </div>
+        )}
+
+        {list.map((u) => {
+          const selected = sel.has(u.user_id);
+          const action = nextAction(u.status);
           return (
-            <React.Fragment key={u.name}>
+            <React.Fragment key={u.user_id}>
               <div
                 style={{
                   position: "relative",
@@ -128,7 +189,7 @@ export default function UserManagement({ onNav }) {
                 }}
               >
                 <span
-                  onClick={() => toggle(i)}
+                  onClick={() => toggle(u.user_id)}
                   style={{
                     width: 15,
                     height: 15,
@@ -145,17 +206,31 @@ export default function UserManagement({ onNav }) {
                   {selected ? "✓" : ""}
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <WAvatar letter={u.name[0]} />
+                  <WAvatar letter={(u.name || "?")[0]} />
                   <span style={{ fontSize: 14, color: "var(--charcoal)" }}>{u.name}</span>
                 </div>
-                <span style={{ fontSize: 13, color: "var(--subtle)" }}>{u.role}</span>
-                <span style={{ fontSize: 13, color: "var(--muted)" }}>{u.joined}</span>
+                <span style={{ fontSize: 13, color: "var(--subtle)" }}>
+                  {ROLE_LABEL[u.role] ?? u.role}
+                </span>
+                <span style={{ fontSize: 13, color: "var(--muted)" }}>{joined(u.created_at)}</span>
                 <div>
-                  <WBadge tone={STATUS_TONE[u.status]}>{u.status}</WBadge>
+                  <WBadge tone={STATUS_TONE[u.status] ?? "neutral"}>
+                    {STATUS_LABEL[u.status] ?? u.status}
+                  </WBadge>
                 </div>
-                <span style={{ fontSize: 13, color: "var(--muted)" }}>{u.last}</span>
                 <span
-                  onClick={() => setMenu(menu === i ? null : i)}
+                  style={{
+                    fontSize: 13,
+                    color: "var(--muted)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {u.email}
+                </span>
+                <span
+                  onClick={() => setMenu(menu === u.user_id ? null : u.user_id)}
                   style={{
                     fontSize: 18,
                     color: "var(--subtle)",
@@ -167,7 +242,7 @@ export default function UserManagement({ onNav }) {
                   ⋯
                 </span>
 
-                {menu === i && (
+                {menu === u.user_id && (
                   <div
                     style={{
                       position: "absolute",
@@ -179,25 +254,11 @@ export default function UserManagement({ onNav }) {
                       minWidth: 150,
                     }}
                   >
-                    {[
-                      "View profile",
-                      u.status === "Suspended" ? "Activate" : "Suspend",
-                      "Reset password",
-                    ].map((opt) => (
-                      <div
-                        key={opt}
-                        onClick={() => setMenu(null)}
-                        style={{
-                          padding: "11px 16px",
-                          fontSize: 13,
-                          color: "var(--charcoal)",
-                          borderBottom: "1px solid var(--border)",
-                          cursor: "pointer",
-                        }}
-                      >
-                        {opt}
-                      </div>
-                    ))}
+                    <MenuItem onClick={() => setMenu(null)}>View profile</MenuItem>
+                    <MenuItem onClick={() => applyStatus([u.user_id], action.to)}>
+                      {action.label}
+                    </MenuItem>
+                    <MenuItem onClick={() => setMenu(null)}>Reset password</MenuItem>
                   </div>
                 )}
               </div>
@@ -209,5 +270,22 @@ export default function UserManagement({ onNav }) {
         </div>
       </div>
     </WebShell>
+  );
+}
+
+function MenuItem({ children, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        padding: "11px 16px",
+        fontSize: 13,
+        color: "var(--charcoal)",
+        borderBottom: "1px solid var(--border)",
+        cursor: "pointer",
+      }}
+    >
+      {children}
+    </div>
   );
 }
