@@ -1,11 +1,11 @@
 "use client";
-import PhoneFrame from "../../mobile/PhoneFrame";
+import MobileShell from "../../mobile/MobileShell";
 import LoginScreen from "../../mobile/screens/LoginScreen";
 
 export default function LoginPage() {
   return (
-    <PhoneFrame>
+    <MobileShell>
       <LoginScreen />
-    </PhoneFrame>
+    </MobileShell>
   );
 }

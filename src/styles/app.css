@@ -2,10 +2,11 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+html { background: var(--cream); }
 body {
   font-family: var(--font-sans);
   color: var(--charcoal);
-  background: #E7E1D7;
+  background: var(--cream);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -13,97 +14,42 @@ body {
 button { font: inherit; }
 input { font: inherit; }
 
-.app-shell {
+/* Responsive mobile shell — used by every Gym User screen.
+   Phone: fills viewport, no frame.
+   Tablet / desktop: 480-px column centered in a darker frame so the
+   app reads like a phone app you're previewing. */
+.onefit-shell {
   min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  background: var(--cream);
+}
+
+.onefit-shell-screen {
+  width: 100%;
+  background: var(--shell-bg, var(--cream));
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-.app-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  height: 52px;
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  background: var(--cream);
-  border-bottom: 1px solid var(--border);
-}
-
-.app-toolbar .brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.app-toolbar .brand .mark {
-  width: 11px;
-  height: 11px;
-  background: var(--warm-red);
-}
-.app-toolbar .brand .word {
-  font-weight: 500;
-  font-size: 15px;
-  color: var(--charcoal);
-  letter-spacing: -0.1px;
-}
-.app-toolbar .brand .sub {
-  font-size: 11px;
-  color: var(--muted);
-  margin-left: 6px;
-}
-
-.app-toolbar .group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.app-toolbar .group-label {
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.app-toolbar .tb-btn {
-  font-weight: 600;
-  font-size: 11px;
-  padding: 7px 12px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--charcoal);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.app-toolbar .tb-btn.active {
-  background: var(--charcoal);
-  color: var(--cream);
-  border-color: var(--charcoal);
-}
-.app-toolbar .spacer { flex: 1; }
-
-.stage-mobile {
-  display: flex;
-  justify-content: center;
-  padding: 48px 24px 64px;
-}
-
-.stage-web {
-  padding: 78px 24px 40px;
-  display: flex;
-  justify-content: center;
-}
-
-.web-frame-outer {
-  transform-origin: top center;
-}
-.web-frame {
-  width: 1440px;
-  height: 900px;
-  border: 1px solid var(--border);
-  background: var(--cream);
-  overflow: hidden;
+@media (min-width: 768px) {
+  .onefit-shell {
+    background: #E7E1D7;
+    padding: 24px;
+  }
+  .onefit-shell-screen {
+    max-width: 480px;
+    min-height: min(844px, calc(100vh - 48px));
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+  }
 }
 
 @keyframes onefit-bar-fill {

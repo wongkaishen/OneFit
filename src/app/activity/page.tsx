@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import PhoneFrame from "../../mobile/PhoneFrame";
+import MobileShell from "../../mobile/MobileShell";
 import LogActivityScreen from "../../mobile/screens/LogActivityScreen";
 import { RequireAuth } from "../../auth/RequireAuth";
 
@@ -8,12 +8,12 @@ export default function ActivityPage() {
   const router = useRouter();
   return (
     <RequireAuth role="gym_user">
-      <PhoneFrame>
+      <MobileShell>
         <LogActivityScreen
           onBack={() => router.back()}
           onSave={() => router.push("/milestone")}
         />
-      </PhoneFrame>
+      </MobileShell>
     </RequireAuth>
   );
 }

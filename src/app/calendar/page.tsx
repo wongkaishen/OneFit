@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import PhoneFrame from "../../mobile/PhoneFrame";
+import MobileShell from "../../mobile/MobileShell";
 import CalendarScreen from "../../mobile/screens/CalendarScreen";
 import { RequireAuth } from "../../auth/RequireAuth";
 
@@ -8,9 +8,9 @@ export default function CalendarPage() {
   const router = useRouter();
   return (
     <RequireAuth role="gym_user">
-      <PhoneFrame>
+      <MobileShell>
         <CalendarScreen onBack={() => router.back()} />
-      </PhoneFrame>
+      </MobileShell>
     </RequireAuth>
   );
 }

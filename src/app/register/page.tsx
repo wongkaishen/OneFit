@@ -1,11 +1,11 @@
 "use client";
-import PhoneFrame from "../../mobile/PhoneFrame";
+import MobileShell from "../../mobile/MobileShell";
 import RegisterScreen from "../../mobile/screens/RegisterScreen";
 
 export default function RegisterPage() {
   return (
-    <PhoneFrame>
+    <MobileShell>
       <RegisterScreen />
-    </PhoneFrame>
+    </MobileShell>
   );
 }
