@@ -1,110 +1,53 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BrandMark, Label, Hairline, Pill } from "../Primitives";
+import GymShell from "../../web/GymShell";
+import { WLabel, WProgress, WButton, WBadge } from "../../web/WebPrimitives";
 import { getDashboard } from "../../api/gymUser";
-import { useAuth } from "../../auth/useAuth";
-import TabBar from "../TabBar";
 
-function StatRow({ name, value, unit, pct }) {
+function Kpi({ label, value, unit, pct }) {
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          padding: "16px 0 14px",
-        }}
-      >
-        <span style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--charcoal)" }}>
-          {name}
+    <div style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <WLabel>{label}</WLabel>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span
+          style={{
+            fontFamily: "var(--font-numeral)",
+            fontWeight: 700,
+            fontSize: 34,
+            color: "var(--charcoal)",
+            lineHeight: 1,
+          }}
+        >
+          {value}
         </span>
-        <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
-          <span
-            style={{
-              fontFamily: "var(--font-numeral)",
-              fontWeight: 700,
-              fontSize: 18,
-              color: "var(--charcoal)",
-            }}
-          >
-            {value}
-          </span>
-          <span style={{ fontFamily: "var(--font-sans)", fontSize: 10, color: "var(--muted)" }}>
-            {unit}
-          </span>
-        </span>
+        {unit && <span style={{ fontSize: 12, color: "var(--muted)" }}>{unit}</span>}
       </div>
-      {pct != null ? (
-        <div style={{ height: 2, background: "var(--border)", position: "relative" }}>
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "var(--coral)",
-              transformOrigin: "left",
-              animation: "onefit-bar-fill 900ms cubic-bezier(.22,1,.36,1) 180ms both",
-              "--pct": pct,
-            }}
-          />
-        </div>
-      ) : (
-        <Hairline />
-      )}
+      {pct != null && <WProgress pct={pct * 100} width="100%" />}
     </div>
   );
 }
 
-function WorkoutRow({ time, name, tag, isNext, next }) {
-  const [pressed, setPressed] = useState(false);
-  const showNext = isNext ?? next;
+function SessionRow({ time, name, tag, next }) {
   return (
     <div
-      onMouseDown={() => setPressed(true)}
-      onMouseUp={() => setPressed(false)}
-      onMouseLeave={() => setPressed(false)}
       style={{
-        position: "relative",
         display: "flex",
         alignItems: "center",
         gap: 18,
-        padding: "16px 0 14px",
-        paddingLeft: showNext ? 14 : 0,
-        background: showNext ? "var(--white)" : "transparent",
-        borderLeft: showNext ? "3px solid var(--coral)" : "3px solid transparent",
-        marginLeft: showNext ? -16 : 0,
-        marginRight: showNext ? -16 : 0,
-        paddingRight: showNext ? 14 : 0,
-        cursor: showNext ? "pointer" : "default",
-        opacity: pressed && showNext ? 0.9 : 1,
-        transform: pressed && showNext ? "scale(0.99)" : "none",
-        transition: "opacity .12s ease, transform .12s ease",
+        padding: "16px 0",
+        borderBottom: "1px solid var(--border)",
+        borderLeft: next ? "3px solid var(--coral)" : "3px solid transparent",
+        paddingLeft: next ? 14 : 3,
+        background: next ? "var(--white)" : "transparent",
       }}
     >
-      <span style={{ width: 34, fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--muted)" }}>
-        {time}
-      </span>
-      <span style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--charcoal)" }}>
-        {name}
-      </span>
-      {showNext ? (
-        <span
-          style={{
-            fontFamily: "var(--font-sans)",
-            fontWeight: 700,
-            fontSize: 9,
-            letterSpacing: "1.5px",
-            color: "var(--coral)",
-            textTransform: "uppercase",
-          }}
-        >
-          NEXT
-        </span>
+      <span style={{ width: 44, fontSize: 12, color: "var(--muted)" }}>{time}</span>
+      <span style={{ flex: 1, fontSize: 14, color: "var(--charcoal)" }}>{name}</span>
+      {next ? (
+        <WBadge tone="warn">Next</WBadge>
       ) : (
-        <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--muted)" }}>
-          {tag}
-        </span>
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>{tag}</span>
       )}
     </div>
   );
@@ -120,9 +63,15 @@ const FALLBACK = {
   today_sessions: [],
 };
 
+const QUICK_ACTIONS = [
+  { label: "Log activity", path: "/activity" },
+  { label: "Log diet", path: "/diet" },
+  { label: "Update progress", path: "/progress" },
+  { label: "Create plan", path: "/plan" },
+];
+
 export default function DashboardScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -139,112 +88,90 @@ export default function DashboardScreen() {
     steps: { ...FALLBACK.steps, ...(data?.steps ?? {}) },
     today_sessions: data?.today_sessions ?? FALLBACK.today_sessions,
   };
-  const initial = (user?.name?.[0] ?? "A").toUpperCase();
   const stepPct = d.steps.goal > 0 ? d.steps.value / d.steps.goal : 0;
 
-  const signOut = () => {
-    logout();
-    router.replace("/login");
-  };
-
-  if (loading) {
-    return (
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--muted)",
-          fontSize: 12,
-        }}
-      >
-        Loading…
-      </div>
-    );
-  }
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "18px 30px 0",
-        }}
-      >
-        <BrandMark />
+    <GymShell active="Home" title="Dashboard" search="Search your day">
+      {loading ? (
         <div
-          onClick={signOut}
-          title="Sign out"
           style={{
-            width: 30,
-            height: 30,
-            borderRadius: "50%",
-            border: "1px solid var(--charcoal)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "var(--font-sans)",
+            padding: 60,
+            textAlign: "center",
+            color: "var(--muted)",
             fontSize: 12,
-            color: "var(--charcoal)",
-            cursor: "pointer",
           }}
         >
-          {initial}
+          Loading…
         </div>
-      </div>
+      ) : (
+        <div style={{ padding: "30px 36px", maxWidth: 1100 }}>
+          {/* Greeting */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <WLabel>{d.date_label}</WLabel>
+            {d.streak_days > 0 && <WBadge tone="warn">{d.streak_days}-day streak</WBadge>}
+          </div>
+          <h1
+            style={{
+              margin: "12px 0 28px",
+              fontFamily: "var(--font-greeting)",
+              fontWeight: 400,
+              fontSize: 30,
+              letterSpacing: "-0.5px",
+              color: "var(--charcoal)",
+              lineHeight: 1.1,
+            }}
+          >
+            {d.greeting}
+          </h1>
 
-      <div style={{ padding: "26px 30px 0" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <Label>{d.date_label}</Label>
-          {d.streak_days > 0 && <Pill>{d.streak_days}-Day Streak</Pill>}
-        </div>
-        <h1
-          style={{
-            margin: "14px 0 0",
-            fontFamily: "var(--font-greeting)",
-            fontWeight: 400,
-            fontSize: 22,
-            letterSpacing: "-0.5px",
-            color: "var(--charcoal)",
-            lineHeight: 1.15,
-          }}
-        >
-          {d.greeting}
-        </h1>
-      </div>
+          {/* KPI strip */}
+          <div className="og-kpi">
+            <Kpi
+              label="Steps"
+              value={d.steps.value.toLocaleString()}
+              unit={`/ ${d.steps.goal.toLocaleString()}`}
+              pct={stepPct}
+            />
+            <Kpi label="Calories" value={String(d.calories)} unit="kcal" />
+            <Kpi label="Water" value={String(d.water_litres)} unit="L" />
+          </div>
 
-      <div style={{ padding: "30px 30px 0" }}>
-        <Hairline />
-        <StatRow
-          name="Steps"
-          value={d.steps.value.toLocaleString()}
-          unit={`/ ${d.steps.goal.toLocaleString()}`}
-          pct={stepPct}
-        />
-        <StatRow name="Calories" value={String(d.calories)} unit="kcal" />
-        <StatRow name="Water" value={String(d.water_litres)} unit="L" />
-      </div>
-
-      <div style={{ padding: "26px 30px 0" }}>
-        <Label>Today</Label>
-        <div style={{ padding: "12px 0 0" }}>
-          {d.today_sessions.length === 0 && (
-            <div style={{ padding: "12px 0", fontSize: 12, color: "var(--muted)" }}>
-              Nothing scheduled today.
+          {/* Two columns: Today + Quick actions */}
+          <div className="og-cols" style={{ marginTop: 36 }}>
+            <div>
+              <WLabel>Today</WLabel>
+              <div style={{ marginTop: 14, borderTop: "1px solid var(--border)" }}>
+                {d.today_sessions.length === 0 && (
+                  <div style={{ padding: "16px 0", fontSize: 13, color: "var(--muted)" }}>
+                    Nothing scheduled today.
+                  </div>
+                )}
+                {d.today_sessions.map((s, i) => (
+                  <SessionRow key={i} {...s} next={s.next ?? s.isNext} />
+                ))}
+              </div>
             </div>
-          )}
-          {d.today_sessions.map((s, i) => (
-            <WorkoutRow key={i} {...s} />
-          ))}
-        </div>
-      </div>
 
-      <div style={{ marginTop: "auto" }}>
-        <TabBar />
-      </div>
-    </div>
+            <div>
+              <WLabel>Quick actions</WLabel>
+              <div
+                style={{
+                  marginTop: 14,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                {QUICK_ACTIONS.map((a) => (
+                  <WButton key={a.path} variant="ghost" onClick={() => router.push(a.path)}>
+                    {a.label}
+                  </WButton>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </GymShell>
   );
 }

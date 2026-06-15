@@ -1,4 +1,5 @@
-import React from "react";
+"use client";
+import React, { useState } from "react";
 
 export function WBrand() {
   return (
@@ -75,18 +76,9 @@ export function WNavItem({ label, active, accent = "var(--coral)", onClick }) {
   );
 }
 
-export function WSidebar({ nav, active, role = "Wellness Specialist", accent = "var(--coral)", onNav }) {
+export function WSidebar({ nav, active, role = "Wellness Specialist", accent = "var(--coral)", onNav, open }) {
   return (
-    <aside
-      style={{
-        width: 240,
-        borderRight: "1px solid var(--border)",
-        background: "var(--cream)",
-        display: "flex",
-        flexDirection: "column",
-        flex: "0 0 auto",
-      }}
-    >
+    <aside className={`ws-sidebar${open ? " open" : ""}`}>
       <WBrand />
       <div style={{ height: 1, background: "var(--border)" }} />
       <nav style={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 8 }}>
@@ -121,7 +113,7 @@ export function WSidebar({ nav, active, role = "Wellness Specialist", accent = "
   );
 }
 
-export function WTopBar({ title, search = "Search", right = <WAvatar letter="W" /> }) {
+export function WTopBar({ title, search = "Search", right = <WAvatar letter="W" />, onHamburger }) {
   return (
     <div
       style={{
@@ -134,16 +126,24 @@ export function WTopBar({ title, search = "Search", right = <WAvatar letter="W" 
         background: "var(--cream)",
       }}
     >
-      <span
-        style={{
-          fontFamily: "var(--font-sans)",
-          fontWeight: 600,
-          fontSize: 16,
-          color: "var(--charcoal)",
-        }}
-      >
-        {title}
-      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+        <button className="ws-hamburger" aria-label="Menu" onClick={onHamburger}>
+          ☰
+        </button>
+        <span
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontWeight: 600,
+            fontSize: 16,
+            color: "var(--charcoal)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {title}
+        </span>
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
         <div
           style={{
@@ -186,21 +186,31 @@ export default function WebShell({
   children,
   onNav,
 }) {
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
+
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        background: "var(--cream)",
-        fontFamily: "var(--font-sans)",
-        overflow: "hidden",
-      }}
-    >
-      <WSidebar nav={nav} active={active} role={role} accent={accent} onNav={onNav} />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <WTopBar title={title} search={search} right={topRight} />
-        <div style={{ flex: 1, overflow: "auto" }}>{children}</div>
+    <div className="ws-root">
+      <div className={`ws-backdrop${open ? " open" : ""}`} onClick={close} />
+      <WSidebar
+        nav={nav}
+        active={active}
+        role={role}
+        accent={accent}
+        open={open}
+        onNav={(item) => {
+          close();
+          onNav?.(item);
+        }}
+      />
+      <div className="ws-main">
+        <WTopBar
+          title={title}
+          search={search}
+          right={topRight}
+          onHamburger={() => setOpen((v) => !v)}
+        />
+        <div className="ws-content">{children}</div>
       </div>
     </div>
   );
