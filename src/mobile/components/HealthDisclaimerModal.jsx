@@ -6,15 +6,25 @@ export default function HealthDisclaimerModal({ onAgree, onCancel }) {
   return (
     <div
       style={{
-        position: "absolute",
+        position: "fixed",
         inset: 0,
         background: "rgba(0,0,0,0.45)",
         display: "flex",
-        alignItems: "flex-end",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
         zIndex: 60,
       }}
     >
-      <div style={{ width: "100%", background: "var(--cream)", padding: "26px 24px 24px" }}>
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 440,
+          background: "var(--cream)",
+          border: "1px solid var(--border)",
+          padding: "26px 24px 24px",
+        }}
+      >
         <Label>Before you start</Label>
         <div
           style={{

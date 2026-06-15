@@ -1,10 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { ScreenHeader, Label, Field, Hairline, PrimaryButton } from "../Primitives";
+import GymShell from "../../web/GymShell";
+import { Label, Field, Hairline, PrimaryButton } from "../Primitives";
 import { getProfile, updateProfile } from "../../api/gymUser";
 import { me } from "../../api/auth";
 
-export default function ProfileScreen({ onBack }) {
+export default function ProfileScreen() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState({
     height: "",
@@ -61,121 +62,105 @@ export default function ProfileScreen({ onBack }) {
       ? (Number(profile.weight) / (Number(profile.height) / 100) ** 2).toFixed(1)
       : "—";
 
-  if (loading) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-        <div style={{ paddingTop: 12 }}>
-          <ScreenHeader title="Profile" onBack={onBack} />
-        </div>
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "var(--muted)",
-            fontSize: 12,
-          }}
-        >
+  return (
+    <GymShell active="Profile" title="Profile" search="Search settings">
+      {loading ? (
+        <div style={{ padding: 60, textAlign: "center", color: "var(--muted)", fontSize: 12 }}>
           Loading…
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ paddingTop: 12 }}>
-        <ScreenHeader title="Profile" onBack={onBack} />
-      </div>
-
-      <div style={{ flex: 1, overflow: "auto" }}>
-        <div style={{ padding: "28px 30px 0", display: "flex", alignItems: "center", gap: 18 }}>
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: "50%",
-              border: "1px solid var(--charcoal)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontFamily: "var(--font-greeting)",
-              fontSize: 22,
-              color: "var(--charcoal)",
-            }}
-          >
-            {initial}
-          </div>
-          <div>
-            <div style={{ fontFamily: "var(--font-greeting)", fontSize: 20, color: "var(--charcoal)" }}>
-              {user?.name || "—"}
+      ) : (
+        <div style={{ padding: "30px 36px", maxWidth: 1100 }}>
+          {/* Identity */}
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                border: "1px solid var(--charcoal)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontFamily: "var(--font-greeting)",
+                fontSize: 26,
+                color: "var(--charcoal)",
+              }}
+            >
+              {initial}
             </div>
-            <div style={{ marginTop: 4, fontSize: 12, color: "var(--muted)" }}>
-              {user?.email || ""}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ padding: "30px 30px 0" }}>
-          <Label>Body metrics</Label>
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 22 }}>
-            <Field label="HEIGHT (CM)" value={profile.height} onChange={set("height")} numeric />
-            <Field label="WEIGHT (KG)" value={profile.weight} onChange={set("weight")} numeric />
-            <Field
-              label="BODY FAT %"
-              value={profile.body_fat_percent}
-              onChange={set("body_fat_percent")}
-              numeric
-            />
             <div>
-              <Label>BMI</Label>
-              <div
-                style={{
-                  marginTop: 12,
-                  marginBottom: 14,
-                  fontFamily: "var(--font-sans)",
-                  fontSize: 14,
-                  color: "var(--charcoal)",
-                }}
-              >
-                {bmi}
+              <div style={{ fontFamily: "var(--font-greeting)", fontSize: 24, color: "var(--charcoal)" }}>
+                {user?.name || "—"}
               </div>
-              <Hairline />
+              <div style={{ marginTop: 4, fontSize: 12, color: "var(--muted)" }}>
+                {user?.email || ""}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div style={{ padding: "26px 30px 0" }}>
-          <Label>Goals</Label>
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 22 }}>
-            <Field
-              label="FITNESS GOAL"
-              value={profile.fitness_goal}
-              onChange={set("fitness_goal")}
-            />
-            <Field label="AGE" value={profile.age} onChange={set("age")} numeric />
+          {/* Two columns: Body metrics + Goals */}
+          <div className="og-cols-even" style={{ marginTop: 36 }}>
+            <div>
+              <Label>Body metrics</Label>
+              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 22 }}>
+                <Field label="HEIGHT (CM)" value={profile.height} onChange={set("height")} numeric />
+                <Field label="WEIGHT (KG)" value={profile.weight} onChange={set("weight")} numeric />
+                <Field
+                  label="BODY FAT %"
+                  value={profile.body_fat_percent}
+                  onChange={set("body_fat_percent")}
+                  numeric
+                />
+                <div>
+                  <Label>BMI</Label>
+                  <div
+                    style={{
+                      marginTop: 12,
+                      marginBottom: 14,
+                      fontFamily: "var(--font-sans)",
+                      fontSize: 14,
+                      color: "var(--charcoal)",
+                    }}
+                  >
+                    {bmi}
+                  </div>
+                  <Hairline />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Label>Goals</Label>
+              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 22 }}>
+                <Field
+                  label="FITNESS GOAL"
+                  value={profile.fitness_goal}
+                  onChange={set("fitness_goal")}
+                />
+                <Field label="AGE" value={profile.age} onChange={set("age")} numeric />
+              </div>
+            </div>
+          </div>
+
+          {msg && (
+            <div
+              style={{
+                marginTop: 20,
+                color: msg === "Saved." ? "var(--muted)" : "var(--coral)",
+                fontSize: 12,
+              }}
+            >
+              {msg}
+            </div>
+          )}
+
+          <div style={{ marginTop: 28, maxWidth: 280 }}>
+            <PrimaryButton onClick={busy ? undefined : save}>
+              {busy ? "Saving…" : "Save changes"}
+            </PrimaryButton>
           </div>
         </div>
-
-        {msg && (
-          <div
-            style={{
-              padding: "16px 30px 0",
-              color: msg === "Saved." ? "var(--muted)" : "var(--coral)",
-              fontSize: 12,
-            }}
-          >
-            {msg}
-          </div>
-        )}
-      </div>
-
-      <div style={{ padding: "0 30px 30px" }}>
-        <PrimaryButton onClick={busy ? undefined : save}>
-          {busy ? "Saving…" : "Save changes"}
-        </PrimaryButton>
-      </div>
-    </div>
+      )}
+    </GymShell>
   );
 }

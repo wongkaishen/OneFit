@@ -1,26 +1,25 @@
 "use client";
 import React, { useState } from "react";
-import { ScreenHeader, Label, Hairline, Field, PrimaryButton } from "../Primitives";
+import GymShell from "../../web/GymShell";
+import { WLabel } from "../../web/WebPrimitives";
+import { Label, Hairline, Field, PrimaryButton } from "../Primitives";
 import { logActivity } from "../../api/gymUser";
-import TabBar from "../TabBar";
 
-function BigStat({ value, label }) {
+function Kpi({ label, value }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+    <div style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <WLabel>{label}</WLabel>
       <span
         style={{
           fontFamily: "var(--font-numeral)",
           fontWeight: 700,
-          fontSize: 28,
+          fontSize: 32,
           color: "var(--charcoal)",
           lineHeight: 1,
         }}
       >
         {value}
       </span>
-      <div style={{ marginTop: 8 }}>
-        <Label>{label}</Label>
-      </div>
     </div>
   );
 }
@@ -56,7 +55,7 @@ function getWeekOfYear(d) {
   return Math.ceil((diff + start.getDay() + 1) / 7);
 }
 
-export default function LogActivityScreen({ onBack, onSave }) {
+export default function LogActivityScreen({ onSave }) {
   const [activity, setActivity] = useState("Run");
   const [duration, setDuration] = useState("35");
   const [busy, setBusy] = useState(false);
@@ -85,43 +84,32 @@ export default function LogActivityScreen({ onBack, onSave }) {
   const weekLabel = `WEEK ${getWeekOfYear(today)} · ${today.getFullYear()}`;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ paddingTop: 12 }}>
-        <ScreenHeader title="Log activity" onBack={onBack} />
-      </div>
-
-      <div style={{ flex: 1, overflow: "auto" }}>
-        <div style={{ padding: "28px 30px 0" }}>
-          <h2
-            style={{
-              margin: 0,
-              fontFamily: "var(--font-greeting)",
-              fontWeight: 400,
-              fontSize: 22,
-              letterSpacing: "-0.5px",
-              color: "var(--charcoal)",
-              lineHeight: 1.15,
-            }}
-          >
-            {dateLabel}
-          </h2>
-          <div style={{ marginTop: 10 }}>
-            <Label>{weekLabel}</Label>
-          </div>
+    <GymShell active="Train" title="Log activity" search="Search activities">
+      <div style={{ padding: "30px 36px", maxWidth: 1100 }}>
+        <h2
+          style={{
+            margin: 0,
+            fontFamily: "var(--font-greeting)",
+            fontWeight: 400,
+            fontSize: 30,
+            letterSpacing: "-0.5px",
+            color: "var(--charcoal)",
+            lineHeight: 1.1,
+          }}
+        >
+          {dateLabel}
+        </h2>
+        <div style={{ marginTop: 10 }}>
+          <Label>{weekLabel}</Label>
         </div>
 
-        <div style={{ padding: "26px 30px 0" }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <BigStat value="7,342" label="Steps" />
-            <BigStat value="420" label="Kcal" />
-            <BigStat value="4.8" label="Km" />
-          </div>
-          <div style={{ marginTop: 26 }}>
-            <Hairline />
-          </div>
+        <div className="og-kpi" style={{ marginTop: 24 }}>
+          <Kpi label="Steps" value="7,342" />
+          <Kpi label="Kcal" value="420" />
+          <Kpi label="Km" value="4.8" />
         </div>
 
-        <div style={{ padding: "24px 30px 0" }}>
+        <div style={{ maxWidth: 640, marginTop: 36 }}>
           <Label>Activity</Label>
           <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
             {activities.map((a) => (
@@ -130,65 +118,57 @@ export default function LogActivityScreen({ onBack, onSave }) {
               </Chip>
             ))}
           </div>
-        </div>
 
-        <div style={{ padding: "26px 30px 0", display: "flex", flexDirection: "column", gap: 22 }}>
-          <Field
-            label="DURATION (MIN)"
-            value={duration}
-            onChange={setDuration}
-            numeric
-          />
-          <div>
-            <Label>How did it feel?</Label>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: 12,
-                marginBottom: 14,
-              }}
-            >
-              <span style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--charcoal)" }}>
-                Moderate intensity
-              </span>
-              <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--charcoal)" }}>
-                ▾
-              </span>
+          <div style={{ marginTop: 26, display: "flex", flexDirection: "column", gap: 22 }}>
+            <Field label="DURATION (MIN)" value={duration} onChange={setDuration} numeric />
+            <div>
+              <Label>How did it feel?</Label>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: 12,
+                  marginBottom: 14,
+                }}
+              >
+                <span style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--charcoal)" }}>
+                  Moderate intensity
+                </span>
+                <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--charcoal)" }}>
+                  ▾
+                </span>
+              </div>
+              <Hairline />
             </div>
-            <Hairline />
+            <div>
+              <Label>Notes</Label>
+              <div
+                style={{
+                  marginTop: 12,
+                  marginBottom: 14,
+                  fontFamily: "var(--font-sans)",
+                  fontSize: 14,
+                  color: "var(--muted)",
+                }}
+              >
+                Morning loop at the lake…
+              </div>
+              <Hairline />
+            </div>
           </div>
-          <div>
-            <Label>Notes</Label>
-            <div
-              style={{
-                marginTop: 12,
-                marginBottom: 14,
-                fontFamily: "var(--font-sans)",
-                fontSize: 14,
-                color: "var(--muted)",
-              }}
-            >
-              Morning loop at the lake…
-            </div>
-            <Hairline />
+
+          {err && (
+            <div style={{ marginTop: 16, color: "var(--coral)", fontSize: 12 }}>{err}</div>
+          )}
+
+          <div style={{ marginTop: 28, maxWidth: 280 }}>
+            <PrimaryButton onClick={busy ? undefined : submit}>
+              {busy ? "Saving…" : "Save entry"}
+            </PrimaryButton>
           </div>
         </div>
       </div>
-
-      {err && (
-        <div style={{ padding: "0 30px 12px", color: "var(--coral)", fontSize: 12 }}>
-          {err}
-        </div>
-      )}
-
-      <div style={{ padding: "0 30px 16px" }}>
-        <PrimaryButton onClick={busy ? undefined : submit}>
-          {busy ? "Saving…" : "Save entry"}
-        </PrimaryButton>
-      </div>
-      <TabBar />
-    </div>
+    </GymShell>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { ScreenHeader, Label, Hairline, PrimaryButton } from "../Primitives";
+import GymShell from "../../web/GymShell";
+import { Label, Hairline, PrimaryButton } from "../Primitives";
 import { getSessions } from "../../api/gymUser";
 
 function MonthGrid({ year, month, sessions }) {
@@ -22,14 +23,7 @@ function MonthGrid({ year, month, sessions }) {
 
   return (
     <div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7, 1fr)",
-          gap: 4,
-          marginBottom: 10,
-        }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 10 }}>
         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
           <div key={i} style={{ textAlign: "center" }}>
             <Label>{d}</Label>
@@ -77,21 +71,11 @@ function MonthGrid({ year, month, sessions }) {
 }
 
 const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
-export default function CalendarScreen({ onBack }) {
+export default function CalendarScreen() {
   const [sessions, setSessions] = useState([]);
   const [cursor] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -104,94 +88,75 @@ export default function CalendarScreen({ onBack }) {
   }, []);
 
   const upcoming = [...sessions]
-    .filter(
-      (s) => new Date(`${s.scheduled_date}T${s.scheduled_time}`) >= new Date()
-    )
+    .filter((s) => new Date(`${s.scheduled_date}T${s.scheduled_time}`) >= new Date())
     .sort(
       (a, b) =>
         new Date(`${a.scheduled_date}T${a.scheduled_time}`) -
         new Date(`${b.scheduled_date}T${b.scheduled_time}`)
     )
-    .slice(0, 3);
-
-  if (loading) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-        <div style={{ paddingTop: 12 }}>
-          <ScreenHeader title="Schedule" onBack={onBack} />
-        </div>
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "var(--muted)",
-            fontSize: 12,
-          }}
-        >
-          Loading…
-        </div>
-      </div>
-    );
-  }
+    .slice(0, 5);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ paddingTop: 12 }}>
-        <ScreenHeader title="Schedule" onBack={onBack} />
-      </div>
+    <GymShell active="Schedule" title="Schedule" search="Search sessions">
+      {loading ? (
+        <div style={{ padding: 60, textAlign: "center", color: "var(--muted)", fontSize: 12 }}>
+          Loading…
+        </div>
+      ) : (
+        <div style={{ padding: "30px 36px", maxWidth: 1100 }}>
+          <div className="og-cols">
+            {/* Left: month grid */}
+            <div style={{ maxWidth: 520 }}>
+              <Label>{`${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}`}</Label>
+              <div style={{ marginTop: 18 }}>
+                <MonthGrid
+                  year={cursor.getFullYear()}
+                  month={cursor.getMonth()}
+                  sessions={sessions}
+                />
+              </div>
+            </div>
 
-      <div style={{ flex: 1, overflow: "auto" }}>
-        <div style={{ padding: "26px 30px 0" }}>
-          <Label>{`${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}`}</Label>
-          <div style={{ marginTop: 18 }}>
-            <MonthGrid
-              year={cursor.getFullYear()}
-              month={cursor.getMonth()}
-              sessions={sessions}
-            />
+            {/* Right: up next + new session */}
+            <div>
+              <Label>Up next</Label>
+              <div style={{ marginTop: 12 }}>
+                <Hairline />
+                {upcoming.length === 0 && (
+                  <div style={{ padding: "16px 0", fontSize: 12, color: "var(--muted)" }}>
+                    No sessions scheduled yet.
+                  </div>
+                )}
+                {upcoming.map((s) => (
+                  <div
+                    key={s.session_id}
+                    style={{
+                      padding: "14px 0",
+                      borderBottom: "1px solid var(--border)",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                    }}
+                  >
+                    <span style={{ fontSize: 13, color: "var(--charcoal)" }}>
+                      {s.scheduled_date.slice(5)}
+                    </span>
+                    <Label>{s.scheduled_time}</Label>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 24, maxWidth: 280 }}>
+                <PrimaryButton
+                  variant="outline"
+                  onClick={() => alert("New-session UI is a follow-up.")}
+                >
+                  + New session
+                </PrimaryButton>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div style={{ padding: "30px 30px 0" }}>
-          <Label>Up next</Label>
-          <div style={{ marginTop: 12 }}>
-            <Hairline />
-            {upcoming.length === 0 && (
-              <div style={{ padding: "16px 0", fontSize: 12, color: "var(--muted)" }}>
-                No sessions scheduled yet.
-              </div>
-            )}
-            {upcoming.map((s) => (
-              <div
-                key={s.session_id}
-                style={{
-                  padding: "14px 0",
-                  borderBottom: "1px solid var(--border)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                }}
-              >
-                <span style={{ fontSize: 13, color: "var(--charcoal)" }}>
-                  {s.scheduled_date.slice(5)}
-                </span>
-                <Label>{s.scheduled_time}</Label>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ padding: "20px 30px 30px" }}>
-        <PrimaryButton
-          variant="outline"
-          onClick={() => alert("New-session UI is a follow-up.")}
-        >
-          + New session
-        </PrimaryButton>
-      </div>
-    </div>
+      )}
+    </GymShell>
   );
 }
