@@ -4,6 +4,7 @@ import { getDemoResponse } from "./demo";
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const TOKEN_KEY = "onefit-jwt";
 const DEMO_KEY = "onefit-demo";
+const DEMO_ROLE_KEY = "onefit-demo-role";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -25,6 +26,18 @@ export function setDemoMode(on: boolean) {
   if (typeof window === "undefined") return;
   if (on) localStorage.setItem(DEMO_KEY, "1");
   else localStorage.removeItem(DEMO_KEY);
+}
+
+// Which role demo mode impersonates. Defaults to gym_user.
+export function getDemoRole(): string {
+  if (typeof window === "undefined") return "gym_user";
+  return localStorage.getItem(DEMO_ROLE_KEY) || "gym_user";
+}
+
+export function setDemoRole(role: string | null) {
+  if (typeof window === "undefined") return;
+  if (role) localStorage.setItem(DEMO_ROLE_KEY, role);
+  else localStorage.removeItem(DEMO_ROLE_KEY);
 }
 
 interface RequestOpts {

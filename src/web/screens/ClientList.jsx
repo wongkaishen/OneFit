@@ -61,7 +61,8 @@ export default function ClientList({ onOpenClient, onNav }) {
           ))}
         </div>
 
-        <div>
+        <div className="ws-tablewrap">
+         <div className="ws-table">
           <div
             style={{
               display: "grid",
@@ -121,6 +122,7 @@ export default function ClientList({ onOpenClient, onNav }) {
               <WHairline />
             </React.Fragment>
           ))}
+         </div>
         </div>
       </div>
     </WebShell>

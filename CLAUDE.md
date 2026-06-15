@@ -43,13 +43,16 @@ All 9 Gym User screens are wired to Wong's API + converted to the responsive web
 - **Train / Eat / Progress / Plan / Profile / Schedule**: GymShell, multi-column desktop → stacked mobile.
 - **Login / Register / Milestone**: centered, no sidebar.
 - Auth (`src/auth/`): `AuthProvider` (JWT in localStorage, `/auth/me` on load), `RequireAuth` role guard, role-based landing redirect in `src/app/page.tsx`.
-- **Demo mode**: visit any URL with `?demo=1` → bypasses backend, signs in as a fake gym user with seed data (`src/api/demo.ts`). A "DEMO MODE" badge (bottom-right, `src/components/DemoBadge.tsx`) shows + lets you exit. Use this to preview without Wong's backend running.
+The 3 Wellness Specialist + 3 Admin screens are now wired into routes too (all behind `RequireAuth`):
+- **Specialist**: `/specialist/clients` (ClientList ⇄ ClientDetail held in page state via `onOpenClient`/`onBack`), `/specialist/plans` (CreateMealPlan). Landing → `/specialist/clients`.
+- **Admin**: `/admin/dashboard` (AdminDashboard, the landing), `/admin/users` (UserManagement), `/admin/content` (ContentPrograms).
+- Sidebar nav labels map to routes via `src/web/navRoutes.ts` (`SPECIALIST_ROUTES` / `ADMIN_ROUTES`); labels with no built screen (Messages/Reports/Settings) are intentionally inert.
+- Their fixed grids are responsive via `app.css` classes: `.adm-kpi` (4-up KPI), `.adm-grid` (3-up cards), `.cd-cols` (client detail 3-col), `.mp-cols` (meal-plan editor). Wide data tables (ClientList, UserManagement) sit in `.ws-tablewrap`/`.ws-table` → horizontal scroll on mobile rather than crushing columns.
+- Smoke-tested all 5 screens at desktop (1440) + mobile (390): drawer, table scroll, card/column stacking all verified.
 
-**NOT done yet — next up:**
-1. Wire the 3 Wellness Specialist screens (`src/web/screens/Client*.jsx`, `CreateMealPlan.jsx`) into `/specialist/*` routes (+ `RequireAuth role="wellness_specialist"`).
-2. Wire the 3 Admin screens (`src/web/screens/Admin*.jsx`, `UserManagement.jsx`, `ContentPrograms.jsx`) into `/admin/*` routes.
-3. Make their table / fixed-grid content responsive (the shell already is).
-4. Playwright smoke test all screens at desktop + mobile.
+- **Demo mode**: visit any URL with `?demo=1` → bypasses backend, signs in with seed data (`src/api/demo.ts`). A "DEMO MODE" badge (bottom-right, `src/components/DemoBadge.tsx`) shows + lets you exit. **Role-aware**: `?demo=1`/`?demo=gym` = gym user, `?demo=specialist` = Wellness Specialist, `?demo=admin` = Admin (role stored in localStorage `onefit-demo-role`, parsed in `AuthProvider`). `?demo=0` exits. Use this to preview any actor without Wong's backend running.
+
+**All actor screens are now built, wired, and responsive.** Remaining work is the deferred follow-ups below (AI flows, Realtime, Vercel deploy, etc.).
 
 ## Key files
 
@@ -57,7 +60,8 @@ All 9 Gym User screens are wired to Wong's API + converted to the responsive web
 - `src/web/GymShell.jsx` — Gym User wrapper around WebShell
 - `src/web/WebPrimitives.jsx` — shared desktop components
 - `src/mobile/screens/*.jsx` — the 9 Gym User screens
-- `src/web/screens/*.jsx` — 6 Specialist/Admin screens (built, NOT yet routed)
+- `src/web/screens/*.jsx` — 6 Specialist/Admin screens (built + routed under `/specialist/*`, `/admin/*`)
+- `src/web/navRoutes.ts` — sidebar nav label → route maps for Specialist/Admin
 - `src/api/` — `client.ts` (fetch+JWT+demo), `auth.ts`, `gymUser.ts`, `notifications.ts`, `ai.ts`, `types.ts`, `demo.ts`
 - `src/auth/` — `AuthProvider.tsx`, `useAuth.ts`, `RequireAuth.tsx`
 - `src/styles/` — `tokens.css` (design tokens), `app.css` (shell + responsive utilities)

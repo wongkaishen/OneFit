@@ -10,8 +10,10 @@ import type {
   Milestone,
   ProgressEntry,
   User,
+  UserRole,
   WorkoutSession,
 } from "./types";
+import { getDemoRole } from "./client";
 
 export const DEMO_USER: User = {
   user_id: "demo-user-1",
@@ -21,6 +23,19 @@ export const DEMO_USER: User = {
   status: "active",
   created_at: "2026-01-15T08:00:00Z",
 };
+
+// Per-role identities so ?demo=specialist / ?demo=admin land on the right shell.
+const DEMO_IDENTITY: Record<string, { name: string; email: string }> = {
+  gym_user: { name: "Alex Tan", email: "alex@onefit.com" },
+  wellness_specialist: { name: "Jordan Mills", email: "jordan@onefit.com" },
+  admin: { name: "Sam Reyes", email: "sam@onefit.com" },
+};
+
+function demoUser(): User {
+  const role = getDemoRole() as UserRole;
+  const id = DEMO_IDENTITY[role] ?? DEMO_IDENTITY.gym_user;
+  return { ...DEMO_USER, role, name: id.name, email: id.email };
+}
 
 const DEMO_PROFILE: FitnessProfile = {
   user_id: DEMO_USER.user_id,
@@ -117,7 +132,7 @@ const DEMO_SESSIONS: WorkoutSession[] = [
 ];
 
 function authResponse(): AuthResponse {
-  return { access_token: "demo-jwt-token", token_type: "bearer", user: DEMO_USER };
+  return { access_token: "demo-jwt-token", token_type: "bearer", user: demoUser() };
 }
 
 function delay(ms = 120) {
@@ -141,7 +156,7 @@ export async function getDemoResponse<T>(
   if (path === "/auth/login" || path === "/auth/register") {
     return authResponse() as unknown as T;
   }
-  if (path === "/auth/me") return DEMO_USER as unknown as T;
+  if (path === "/auth/me") return demoUser() as unknown as T;
 
   // Gym User
   if (path === "/gym-user/profile") {

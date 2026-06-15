@@ -107,14 +107,7 @@ export default function ClientDetail({ client, onBack, onNav }) {
 
         <WHairline />
 
-        <div
-          style={{
-            marginTop: 26,
-            display: "grid",
-            gridTemplateColumns: "1.3fr 1fr 1fr",
-            alignItems: "stretch",
-          }}
-        >
+        <div className="cd-cols" style={{ marginTop: 26 }}>
           {/* Left column */}
           <div style={{ paddingRight: 32, borderRight: "1px solid var(--border)" }}>
             <WLabel>Weight trend · last 7 weeks</WLabel>

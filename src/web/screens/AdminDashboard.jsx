@@ -84,14 +84,7 @@ export default function AdminDashboard({ onNav }) {
     >
       <div style={{ padding: "30px 36px" }}>
         <WLabel>System overview · live</WLabel>
-        <div
-          style={{
-            marginTop: 16,
-            border: "1px solid var(--border)",
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-          }}
-        >
+        <div className="adm-kpi" style={{ marginTop: 16, border: "1px solid var(--border)" }}>
           {KPIS.map((k, i) => (
             <KpiCard key={k.label} {...k} last={i === KPIS.length - 1} />
           ))}

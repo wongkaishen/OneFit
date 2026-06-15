@@ -2,8 +2,18 @@
 
 import { createContext, useEffect, useState, ReactNode } from "react";
 import * as authApi from "../api/auth";
-import { setDemoMode, setToken } from "../api/client";
+import { setDemoMode, setDemoRole, setToken } from "../api/client";
 import type { User } from "../api/types";
+
+// Maps ?demo=<value> to the role demo mode should impersonate.
+const DEMO_ROLE_ALIAS: Record<string, string> = {
+  "1": "gym_user",
+  gym: "gym_user",
+  gym_user: "gym_user",
+  specialist: "wellness_specialist",
+  wellness_specialist: "wellness_specialist",
+  admin: "admin",
+};
 
 interface AuthContextValue {
   user: User | null;
@@ -42,12 +52,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const demo = params.get("demo");
-      if (demo === "1") {
-        setDemoMode(true);
-        setToken("demo-jwt-token"); // ensure the client attaches a Bearer header
-      } else if (demo === "0") {
+      if (demo === "0") {
         setDemoMode(false);
+        setDemoRole(null);
         setToken(null);
+      } else if (demo && DEMO_ROLE_ALIAS[demo]) {
+        setDemoMode(true);
+        setDemoRole(DEMO_ROLE_ALIAS[demo]);
+        setToken("demo-jwt-token"); // ensure the client attaches a Bearer header
       }
     }
     refresh();

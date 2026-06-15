@@ -161,7 +161,7 @@ export default function CreateMealPlan({ onBack, onNav }) {
         ))}
       </div>
 
-      <div style={{ padding: "26px 36px", display: "grid", gridTemplateColumns: "1fr 320px" }}>
+      <div className="mp-cols" style={{ padding: "26px 36px" }}>
         <div style={{ paddingRight: 40 }}>
           {MEALS.map((m) => (
             <MealDropTarget key={m.name} meal={m} />

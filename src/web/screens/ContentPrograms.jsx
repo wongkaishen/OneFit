@@ -109,7 +109,7 @@ export default function ContentPrograms({ onNav }) {
           </WButton>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+        <div className="adm-grid">
           {list.map((p) => (
             <ProgramCard key={p.title} p={p} />
           ))}

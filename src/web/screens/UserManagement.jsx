@@ -92,6 +92,8 @@ export default function UserManagement({ onNav }) {
           </div>
         </div>
 
+        <div className="ws-tablewrap">
+         <div className="ws-table">
         <div
           style={{
             display: "grid",
@@ -203,6 +205,8 @@ export default function UserManagement({ onNav }) {
             </React.Fragment>
           );
         })}
+         </div>
+        </div>
       </div>
     </WebShell>
   );

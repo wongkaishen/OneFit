@@ -160,3 +160,39 @@ input { font: inherit; }
   .og-kpi { grid-template-columns: 1fr; }
   .og-kpi > * + * { border-left: none; border-top: 1px solid var(--border); }
 }
+
+/* ============================================================
+   Specialist / Admin screen grids — desktop multi-column,
+   collapse to a single column below 600px.
+   ============================================================ */
+
+/* Admin dashboard 4-up KPI strip */
+.adm-kpi { display: grid; grid-template-columns: repeat(4, 1fr); }
+
+/* Content & programs card grid */
+.adm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+
+/* Client detail 3-up columns */
+.cd-cols { display: grid; grid-template-columns: 1.3fr 1fr 1fr; align-items: stretch; }
+
+/* Create meal plan: editor + live summary */
+.mp-cols { display: grid; grid-template-columns: 1fr 320px; }
+
+/* Wide data tables (client list, user management): scroll horizontally
+   on small screens rather than crushing the fixed columns. */
+.ws-tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.ws-table { min-width: 720px; }
+
+@media (max-width: 600px) {
+  .adm-kpi { grid-template-columns: 1fr; }
+  .adm-kpi > * { border-right: none !important; }
+  .adm-kpi > * + * { border-top: 1px solid var(--border); }
+
+  .adm-grid { grid-template-columns: 1fr; }
+
+  .cd-cols { grid-template-columns: 1fr; gap: 28px; }
+  .cd-cols > * { border-right: none !important; padding: 0 !important; }
+
+  .mp-cols { grid-template-columns: 1fr; }
+  .mp-cols > * { border-left: none !important; padding: 0 !important; }
+}

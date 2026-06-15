@@ -158,11 +158,12 @@ export function WBarChart({ data, height = 120, highlightLast = true }) {
         const isLast = i === data.length - 1;
         const h = (d.v / max) * 100;
         return (
-          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <div key={i} style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
             <div
               style={{
                 width: "100%",
                 height: `${h}%`,
+                flex: "0 0 auto",
                 background: highlightLast && isLast ? "var(--coral)" : "var(--border)",
               }}
             />
