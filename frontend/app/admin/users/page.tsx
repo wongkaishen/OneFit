@@ -108,7 +108,7 @@ export default function UserManagementPage() {
             <div key={u.user_id} className="relative">
               <div
                 className="grid items-center px-1 py-4"
-                style={{ gridTemplateColumns: GRID, background: sel.includes(u.user_id) ? "var(--white)" : "transparent" }}
+                style={{ gridTemplateColumns: GRID, background: sel.includes(u.user_id) ? "#FFFFFF" : "transparent" }}
               >
                 <span
                   onClick={() => toggle(u.user_id)}
