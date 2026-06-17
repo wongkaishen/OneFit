@@ -1,6 +1,8 @@
+import ssl
 from functools import lru_cache
 from typing import Annotated
 
+import certifi
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -28,10 +30,18 @@ class CurrentUser(BaseModel):
 
 @lru_cache(maxsize=1)
 def _jwks_client() -> jwt.PyJWKClient:
-    """Cached JWKS client pointed at this project's GoTrue."""
+    """Cached JWKS client pointed at this project's GoTrue.
+
+    PyJWKClient fetches over urllib, which on some platforms (notably macOS
+    Python builds) has no usable system CA bundle and fails Supabase's TLS cert
+    with CERTIFICATE_VERIFY_FAILED. Pin an SSL context to certifi's bundle so
+    asymmetric (ES256/RS256) token verification works everywhere.
+    """
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
     return jwt.PyJWKClient(
         f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json",
         cache_keys=True,
+        ssl_context=ssl_context,
     )
 
 

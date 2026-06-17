@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Progress } from "@/components/ui/Progress";
 import { Button } from "@/components/ui/Button";
 import { useResource } from "@/lib/api/useResource";
+import { useSession } from "@/lib/auth/session";
 import { listClients } from "@/lib/api/specialist";
 import { relativeTime } from "@/lib/format";
 import type { ClientSummary } from "@/lib/api/types";
@@ -33,7 +34,12 @@ const FILTERS = ["All clients", "On track", "At risk", "New this week"];
 export default function ClientListPage() {
   const router = useRouter();
   const [filter, setFilter] = useState("All clients");
+  const { user } = useSession();
   const { data, error, loading } = useResource<ClientSummary[]>(listClients, []);
+
+  const displayName = user?.name ?? user?.email ?? null;
+  const firstName = displayName?.split(/[\s@]/)[0] ?? null;
+  const avatarLetter = displayName?.[0]?.toUpperCase() ?? "?";
 
   const rows = useMemo(() => {
     const list = (data ?? []).map((c) => ({ c, d: derive(c) }));
@@ -44,14 +50,14 @@ export default function ClientListPage() {
 
   return (
     <>
-      <TopBar title="Clients" search="Search clients" avatarLetter="J" />
+      <TopBar title="Clients" search="Search clients" avatarLetter={avatarLetter} />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
           <div className="mb-[22px] flex items-end justify-between">
             <div>
               <Label>Your roster · {data?.length ?? 0} active</Label>
               <div className="mt-2 whitespace-nowrap font-serif text-[26px] text-charcoal">
-                Good to see you, Jordan.
+                {firstName ? `Good to see you, ${firstName}.` : "Good to see you."}
               </div>
             </div>
             <Button size="sm">+ Add client</Button>

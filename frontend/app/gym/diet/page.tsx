@@ -1,0 +1,111 @@
+"use client";
+import { useState } from "react";
+import { TopBar } from "@/components/shell/TopBar";
+import { Label } from "@/components/ui/Label";
+import { Button } from "@/components/ui/Button";
+import { ApiError } from "@/lib/api/client";
+import { logDiet } from "@/lib/api/gym";
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+const MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];
+
+export default function GymDietPage() {
+  const [mealTime, setMealTime] = useState(MEALS[0]);
+  const [foodItem, setFoodItem] = useState("");
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fat, setFat] = useState("");
+  const [logDate, setLogDate] = useState(today());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  const num = (v: string) => (v.trim() === "" ? null : Number(v));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSaved(null);
+    if (calories.trim() === "") {
+      setError("Calories are required.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await logDiet({
+        meal_time: mealTime,
+        food_item: foodItem.trim() || null,
+        calories: Number(calories),
+        protein: num(protein),
+        carbs: num(carbs),
+        fat: num(fat),
+        log_date: logDate,
+      });
+      setSaved("Meal logged.");
+      setFoodItem(""); setCalories(""); setProtein(""); setCarbs(""); setFat("");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to log meal");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const field = (
+    label: string, value: string, set: (v: string) => void, type = "number", placeholder = "",
+  ) => (
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => set(e.target.value)}
+        className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
+      />
+    </div>
+  );
+
+  return (
+    <>
+      <TopBar title="Log diet" search="Search" avatarLetter="G" />
+      <main className="flex-1 overflow-auto">
+        <div className="max-w-[560px] px-9 py-[30px]">
+          <Label>Dietary intake</Label>
+          <form onSubmit={submit} className="mt-5 flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <Label>Meal</Label>
+              <select
+                value={mealTime}
+                onChange={(e) => setMealTime(e.target.value)}
+                className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
+              >
+                {MEALS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            {field("Food item", foodItem, setFoodItem, "text", "e.g. Chicken salad")}
+            <div className="grid grid-cols-2 gap-5">
+              {field("Calories", calories, setCalories)}
+              {field("Protein (g)", protein, setProtein)}
+              {field("Carbs (g)", carbs, setCarbs)}
+              {field("Fat (g)", fat, setFat)}
+            </div>
+            {field("Date", logDate, setLogDate, "date")}
+
+            {error && <div className="text-[13px] text-coral">{error}</div>}
+            {saved && <div className="text-[13px] text-good">{saved}</div>}
+
+            <div>
+              <Button type="submit" variant="dark" disabled={busy}>
+                {busy ? "Logging…" : "Log meal"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </main>
+    </>
+  );
+}

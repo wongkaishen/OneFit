@@ -27,6 +27,8 @@ from app.models import (
     Profile,
     ProgressEntry,
     WellnessSpecialist,
+    WorkoutPlan,
+    WorkoutSession,
 )
 from app.services.audit import record_audit
 from app.services.notification import notify
@@ -44,6 +46,19 @@ VALID_AUDIENCE = {"all", "gym_users", "specialists"}
 
 def _now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
+
+
+async def _ensure_admin_row(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Guarantee an `admins` subtype row exists for this admin.
+
+    Admins are seeded by setting profiles.role='admin' directly in Supabase,
+    which does NOT create the admins subtype row. Several admin writes
+    (announcements) FK-reference admins.user_id, so provision it lazily here.
+    """
+    await db.execute(
+        text("insert into public.admins (user_id) values (:id) on conflict do nothing"),
+        {"id": user_id},
+    )
 
 
 class StatusUpdate(BaseModel):
@@ -129,8 +144,9 @@ async def set_user_status(user_id: uuid.UUID, body: StatusUpdate, admin: AdminDe
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     profile.status = body.status
+    target = profile.name or profile.email or str(user_id)
     await record_audit(db, actor_id=uuid.UUID(admin.id), action="set_user_status",
-                       details=f"{user_id} -> {body.status}")
+                       details=f"{target} -> {body.status}")
     await db.commit()
     await db.refresh(profile)
     return profile
@@ -169,8 +185,9 @@ async def set_user_role(user_id: uuid.UUID, body: RoleUpdate, admin: AdminDep, d
             text("insert into public.admins (user_id) values (:id) on conflict do nothing"),
             {"id": str(user_id)},
         )
+    target = profile.name or profile.email or str(user_id)
     await record_audit(db, actor_id=uuid.UUID(admin.id), action="set_user_role",
-                       details=f"{user_id} -> {body.role}")
+                       details=f"{target} -> {body.role}")
     await db.commit()
     await db.refresh(profile)
     return profile
@@ -257,6 +274,10 @@ async def create_announcement(body: AnnouncementIn, admin: AdminDep, db: DbDep):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"target_audience must be one of {sorted(VALID_AUDIENCE)}",
         )
+    # Seeded admins (profiles.role='admin') may lack the admins subtype row the
+    # announcement FK requires — provision it before inserting.
+    await _ensure_admin_row(db, uuid.UUID(admin.id))
+
     ann = Announcement(
         announcement_id=uuid.uuid4(),
         admin_id=uuid.UUID(admin.id),
@@ -275,8 +296,9 @@ async def create_announcement(body: AnnouncementIn, admin: AdminDep, db: DbDep):
     elif body.target_audience == "specialists":
         audience_stmt = audience_stmt.where(Profile.role == "wellness_specialist")
     recipients = (await db.execute(audience_stmt)).scalars().all()
+    message = f"{body.title}\n\n{body.body}" if body.body.strip() else body.title
     for rid in recipients:
-        await notify(db, recipient_id=rid, type="announcement", message=f"{body.title}")
+        await notify(db, recipient_id=rid, type="announcement", message=message)
 
     await record_audit(
         db,
@@ -287,3 +309,202 @@ async def create_announcement(body: AnnouncementIn, admin: AdminDep, db: DbDep):
     await db.commit()
     await db.refresh(ann)
     return ann
+
+
+# --- UC4: Approve Member Registration ---------------------------------------
+class RejectIn(BaseModel):
+    reason: str = ""
+
+
+@router.get("/registrations", response_model=list[UserOut])
+async def list_registrations(admin: AdminDep, db: DbDep):
+    """Pending-registration queue (UC4): profiles still awaiting approval."""
+    result = await db.execute(
+        select(Profile).where(Profile.status == "pending").order_by(Profile.created_at)
+    )
+    return result.scalars().all()
+
+
+@router.post("/registrations/{user_id}/approve", response_model=UserOut)
+async def approve_registration(user_id: uuid.UUID, admin: AdminDep, db: DbDep):
+    """Approve a pending applicant: activate the account and send a welcome."""
+    profile = await db.get(Profile, user_id)
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if profile.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User is not pending approval (status={profile.status})",
+        )
+    profile.status = "active"
+    await notify(
+        db,
+        recipient_id=user_id,
+        type="account",
+        message="Welcome to OneFit! Your account has been approved.",
+    )
+    target = profile.name or profile.email or str(user_id)
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="approve_registration",
+                       details=f"{target} approved")
+    await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+@router.post("/registrations/{user_id}/reject", response_model=UserOut)
+async def reject_registration(user_id: uuid.UUID, body: RejectIn, admin: AdminDep, db: DbDep):
+    """Reject a pending applicant: record the reason and notify them.
+
+    account_status has no 'rejected' value, so a rejected applicant is moved to
+    'suspended' (no access); the reason is preserved in the audit log + notification.
+    """
+    profile = await db.get(Profile, user_id)
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if profile.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User is not pending approval (status={profile.status})",
+        )
+    profile.status = "suspended"
+    reason = body.reason.strip() or "No reason provided"
+    await notify(
+        db,
+        recipient_id=user_id,
+        type="account",
+        message=f"Your OneFit registration was not approved. Reason: {reason}",
+    )
+    target = profile.name or profile.email or str(user_id)
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="reject_registration",
+                       details=f"{target}: {reason}")
+    await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+# --- UC7: Remove Inactive Program -------------------------------------------
+class ProgramOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    plan_id: uuid.UUID
+    user_id: uuid.UUID
+    goal: str
+    status: str
+    created_at: dt.datetime
+    last_activity_at: dt.datetime | None = None
+
+
+@router.get("/programs")
+async def list_programs(admin: AdminDep, db: DbDep, inactive_days: int = 30):
+    """Program list filtered by inactivity (UC7).
+
+    A program's last activity is the latest scheduled session date, falling back
+    to its creation time. Returns active programs whose last activity is older
+    than `inactive_days`.
+    """
+    cutoff = _now() - dt.timedelta(days=inactive_days)
+    last_session = (
+        select(
+            WorkoutSession.plan_id.label("plan_id"),
+            func.max(WorkoutSession.scheduled_date).label("last_date"),
+        )
+        .group_by(WorkoutSession.plan_id)
+        .subquery()
+    )
+    rows = (
+        await db.execute(
+            select(WorkoutPlan, last_session.c.last_date)
+            .join(last_session, last_session.c.plan_id == WorkoutPlan.plan_id, isouter=True)
+            .where(WorkoutPlan.status == "active")
+            .order_by(WorkoutPlan.created_at)
+        )
+    ).all()
+
+    out: list[dict] = []
+    for plan, last_date in rows:
+        last_dt = (
+            dt.datetime.combine(last_date, dt.time(), tzinfo=dt.timezone.utc)
+            if last_date is not None
+            else plan.created_at
+        )
+        if last_dt < cutoff:
+            out.append(
+                {
+                    "plan_id": plan.plan_id,
+                    "user_id": plan.user_id,
+                    "goal": plan.goal,
+                    "status": plan.status,
+                    "created_at": plan.created_at,
+                    "last_activity_at": last_dt,
+                }
+            )
+    return out
+
+
+@router.post("/programs/{plan_id}/remove")
+async def remove_program(plan_id: uuid.UUID, admin: AdminDep, db: DbDep):
+    """Archive an inactive program and detach its upcoming sessions (UC7)."""
+    plan = await db.get(WorkoutPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
+    plan.status = "superseded"  # archived: kept for history, no longer active
+    # Detach from active plans: mark its still-scheduled sessions as missed.
+    detached = (
+        await db.execute(
+            text(
+                "update public.workout_sessions set status='missed' "
+                "where plan_id = :pid and status='scheduled'"
+            ),
+            {"pid": str(plan_id)},
+        )
+    ).rowcount
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="remove_program",
+                       details=f"plan {plan_id} archived; {detached} sessions detached")
+    await db.commit()
+    return {"plan_id": plan_id, "status": "superseded", "sessions_detached": detached}
+
+
+# --- UC8: Send Notification to Member ---------------------------------------
+class NotifyIn(BaseModel):
+    message: str
+    # "user" (needs user_id), "gym_users", "specialists", or "all".
+    audience: str = "all"
+    user_id: uuid.UUID | None = None
+    title: str | None = None
+
+
+@router.post("/notifications", status_code=status.HTTP_201_CREATED)
+async def send_notification(body: NotifyIn, admin: AdminDep, db: DbDep):
+    """Dispatch a notification to a single user, a role group, or everyone (UC8)."""
+    if not body.message.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Message is required")
+
+    if body.audience == "user":
+        if body.user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="audience 'user' requires user_id",
+            )
+        if await db.get(Profile, body.user_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        recipients = [body.user_id]
+    elif body.audience in {"gym_users", "specialists", "all"}:
+        stmt = select(Profile.id)
+        if body.audience == "gym_users":
+            stmt = stmt.where(Profile.role == "gym_user")
+        elif body.audience == "specialists":
+            stmt = stmt.where(Profile.role == "wellness_specialist")
+        recipients = list((await db.execute(stmt)).scalars().all())
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="audience must be 'user', 'gym_users', 'specialists', or 'all'",
+        )
+
+    message = f"{body.title}\n\n{body.message}" if body.title else body.message
+    for rid in recipients:
+        await notify(db, recipient_id=rid, type="admin_message", message=message)
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="send_notification",
+                       details=f"{body.audience}: {len(recipients)} recipient(s)")
+    await db.commit()
+    return {"sent": len(recipients), "audience": body.audience}

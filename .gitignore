@@ -1,3 +1,7 @@
+# ---------- Local tooling / scratch ----------
+.mcp.json
+Web design/
+
 # ---------- OS ----------
 .DS_Store
 .DS_Store?

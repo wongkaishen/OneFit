@@ -23,3 +23,13 @@ export const createContent = (body: ContentIn) =>
 
 export const submitFeedback = (body: FeedbackIn) =>
   request<unknown>("/specialist/feedback", { method: "POST", body: JSON.stringify(body) });
+
+export const sendSpecialistAnnouncement = (body: {
+  title: string;
+  body: string;
+  audience?: "gym_users" | "all";
+}) =>
+  request<{ sent: number; audience: string }>("/specialist/announcements", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });

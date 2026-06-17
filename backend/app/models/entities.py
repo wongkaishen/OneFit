@@ -19,10 +19,45 @@ from sqlalchemy import (
     Text,
     Time,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import ENUM, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+
+
+# --- Postgres enum types ----------------------------------------------------
+# These mirror the `create type ... as enum` definitions in
+# supabase/migrations/0001_init.sql. SQL is the source of truth for the schema,
+# so every type is declared with create_type=False / checkfirst — SQLAlchemy
+# binds values as the native enum (so writes cast correctly) without trying to
+# CREATE or DROP the type. Mapping these as plain String makes reads work but
+# breaks INSERT/UPDATE: Postgres won't implicitly cast varchar -> enum.
+def _pg_enum(name: str, *values: str) -> ENUM:
+    return ENUM(*values, name=name, create_type=False)
+
+
+user_role_enum = _pg_enum("user_role", "gym_user", "wellness_specialist", "admin")
+account_status_enum = _pg_enum("account_status", "pending", "active", "suspended")
+membership_status_enum = _pg_enum("membership_status", "active", "suspended")
+specialist_approval_enum = _pg_enum("specialist_approval", "pending", "approved", "rejected")
+plan_status_enum = _pg_enum("plan_status", "active", "superseded")
+session_status_enum = _pg_enum("session_status", "scheduled", "completed", "missed")
+activity_source_enum = _pg_enum("activity_source", "manual", "wearable")
+activity_status_enum = _pg_enum("activity_status", "pending", "completed")
+meal_time_enum = _pg_enum("meal_time", "breakfast", "lunch", "dinner", "snack")
+entry_mode_enum = _pg_enum("entry_mode", "quick", "detailed")
+task_status_enum = _pg_enum(
+    "task_status",
+    "Assigned", "InProgress", "Submitted", "UnderReview", "Completed", "Overdue", "Cancelled",
+)
+content_status_enum = _pg_enum("content_status", "Draft", "Published", "Archived", "Rejected")
+post_status_enum = _pg_enum(
+    "post_status", "Posted", "Flagged", "UnderReview", "Approved", "Removed", "Escalated",
+)
+post_severity_enum = _pg_enum("post_severity", "low", "medium", "high")
+notification_status_enum = _pg_enum("notification_status", "read", "unread")
+announcement_audience_enum = _pg_enum("announcement_audience", "all", "gym_users", "specialists")
+announcement_status_enum = _pg_enum("announcement_status", "draft", "published")
 
 
 # --- 3.2.1 User -> profiles -------------------------------------------------
@@ -32,8 +67,8 @@ class Profile(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     name: Mapped[str | None] = mapped_column(Text)
     email: Mapped[str] = mapped_column(Text, unique=True)
-    role: Mapped[str] = mapped_column(String, default="gym_user")
-    status: Mapped[str] = mapped_column(String, default="pending")
+    role: Mapped[str] = mapped_column(user_role_enum, default="gym_user")
+    status: Mapped[str] = mapped_column(account_status_enum, default="pending")
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -44,7 +79,7 @@ class GymUser(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True
     )
-    membership_status: Mapped[str] = mapped_column(String, default="active")
+    membership_status: Mapped[str] = mapped_column(membership_status_enum, default="active")
 
     fitness_profile: Mapped["FitnessProfile"] = relationship(back_populates="gym_user", uselist=False)
 
@@ -58,7 +93,7 @@ class WellnessSpecialist(Base):
     )
     specialization: Mapped[str] = mapped_column(Text)
     certification_doc: Mapped[str | None] = mapped_column(Text)
-    approval_status: Mapped[str] = mapped_column(String, default="pending")
+    approval_status: Mapped[str] = mapped_column(specialist_approval_enum, default="pending")
 
 
 # --- 3.2.5 Admin ------------------------------------------------------------
@@ -96,8 +131,28 @@ class WorkoutPlan(Base):
         UUID(as_uuid=True), ForeignKey("gym_users.user_id", ondelete="CASCADE")
     )
     goal: Mapped[str] = mapped_column(Text)
-    generated_by: Mapped[str] = mapped_column(String, default="manual")
-    status: Mapped[str] = mapped_column(String, default="active")
+    generated_by: Mapped[str] = mapped_column(String, default="manual")  # text column, not an enum
+    status: Mapped[str] = mapped_column(plan_status_enum, default="active")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+
+
+# --- Exercises (SDS data-design summary p.45; no §3.2.x dictionary entry) ----
+# Per-exercise breakdown of a workout_plan. The SDS lists the table and its PK
+# (exercise_id) but specifies no columns; the shape here follows the conventions
+# of the surrounding tables and is created by 0005_exercises.sql.
+class Exercise(Base):
+    __tablename__ = "exercises"
+
+    exercise_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    plan_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workout_plans.plan_id", ondelete="CASCADE")
+    )
+    name: Mapped[str] = mapped_column(Text)
+    sets: Mapped[int | None] = mapped_column(Integer)
+    reps: Mapped[int | None] = mapped_column(Integer)
+    rest_seconds: Mapped[int | None] = mapped_column(Integer)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+    notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -112,7 +167,7 @@ class WorkoutSession(Base):
     scheduled_date: Mapped[dt.date] = mapped_column(Date)
     scheduled_time: Mapped[dt.time] = mapped_column(Time)
     reminder_set: Mapped[bool] = mapped_column(Boolean, default=False)
-    status: Mapped[str] = mapped_column(String, default="scheduled")
+    status: Mapped[str] = mapped_column(session_status_enum, default="scheduled")
 
 
 # --- 3.2.8 ActivityLog ------------------------------------------------------
@@ -128,9 +183,9 @@ class ActivityLog(Base):
     steps: Mapped[int | None] = mapped_column(Integer)
     heart_rate: Mapped[int | None] = mapped_column(Integer)
     calories_burned: Mapped[float | None] = mapped_column(Numeric(7, 2))
-    source: Mapped[str] = mapped_column(String, default="manual")
+    source: Mapped[str] = mapped_column(activity_source_enum, default="manual")
     log_date: Mapped[dt.date] = mapped_column(Date)
-    status: Mapped[str] = mapped_column(String, default="pending")
+    status: Mapped[str] = mapped_column(activity_status_enum, default="pending")
 
 
 # --- 3.2.9 DietaryLog -------------------------------------------------------
@@ -141,13 +196,13 @@ class DietaryLog(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("gym_users.user_id", ondelete="CASCADE")
     )
-    meal_time: Mapped[str | None] = mapped_column(String)
+    meal_time: Mapped[str | None] = mapped_column(meal_time_enum)
     food_item: Mapped[str | None] = mapped_column(Text)
     calories: Mapped[float] = mapped_column(Numeric(7, 2))
     protein: Mapped[float | None] = mapped_column(Numeric(6, 2))
     carbs: Mapped[float | None] = mapped_column(Numeric(6, 2))
     fat: Mapped[float | None] = mapped_column(Numeric(6, 2))
-    entry_mode: Mapped[str] = mapped_column(String, default="quick")
+    entry_mode: Mapped[str] = mapped_column(entry_mode_enum, default="quick")
     log_date: Mapped[dt.date] = mapped_column(Date)
 
 
@@ -192,7 +247,7 @@ class WellnessTask(Base):
     description: Mapped[str] = mapped_column(Text)
     target_metric: Mapped[str | None] = mapped_column(Text)
     due_date: Mapped[dt.date] = mapped_column(Date)
-    status: Mapped[str] = mapped_column(String, default="Assigned")
+    status: Mapped[str] = mapped_column(task_status_enum, default="Assigned")
 
 
 # --- 3.2.13 EducationalContent ----------------------------------------------
@@ -208,7 +263,7 @@ class EducationalContent(Base):
     category: Mapped[str] = mapped_column(Text)
     media_url: Mapped[str | None] = mapped_column(Text)
     visibility: Mapped[bool] = mapped_column(Boolean, default=True)
-    status: Mapped[str] = mapped_column(String, default="Draft")
+    status: Mapped[str] = mapped_column(content_status_enum, default="Draft")
     permission_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
 
@@ -253,8 +308,8 @@ class CommunityPost(Base):
         UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE")
     )
     content: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String, default="Posted")
-    severity: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str] = mapped_column(post_status_enum, default="Posted")
+    severity: Mapped[str | None] = mapped_column(post_severity_enum)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -268,7 +323,7 @@ class Notification(Base):
     )
     type: Mapped[str] = mapped_column(Text)
     message: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String, default="unread")
+    status: Mapped[str] = mapped_column(notification_status_enum, default="unread")
     sent_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -282,8 +337,8 @@ class Announcement(Base):
     )
     title: Mapped[str] = mapped_column(Text)
     body: Mapped[str] = mapped_column(Text)
-    target_audience: Mapped[str] = mapped_column(String, default="all")
-    status: Mapped[str] = mapped_column(String, default="draft")
+    target_audience: Mapped[str] = mapped_column(announcement_audience_enum, default="all")
+    status: Mapped[str] = mapped_column(announcement_status_enum, default="draft")
     sent_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 

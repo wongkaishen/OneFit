@@ -148,7 +148,7 @@ export default function ClientDetailPage() {
                   </Button>
                 </div>
 
-                {/* right: feedback module (UC3) */}
+                {/* right: feedback module */}
                 <div className="pl-8">
                   <Label>Send feedback</Label>
                   <textarea

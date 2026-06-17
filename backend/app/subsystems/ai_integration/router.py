@@ -16,17 +16,20 @@ _NOT_IMPLEMENTED = "AI & Integration subsystem is on the future roadmap; not yet
 
 
 class GeneratePlanRequest(BaseModel):
-    user_id: str
+    # All optional: this is a deferred stub, so any (or no) payload must still
+    # surface the 501 "AI coming soon" contract rather than a 422 body-validation
+    # error raised before the handler runs.
+    user_id: str | None = None
     goal: str | None = None
 
 
 @router.post("/workout-plan", status_code=status.HTTP_501_NOT_IMPLEMENTED)
-async def generate_workout_plan(_: GeneratePlanRequest):
+async def generate_workout_plan(_: GeneratePlanRequest | None = None):
     """Future: generate a workout plan via Groq from the user's fitness profile."""
     raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail=_NOT_IMPLEMENTED)
 
 
 @router.get("/nutrition/search", status_code=status.HTTP_501_NOT_IMPLEMENTED)
-async def nutrition_search(q: str):
+async def nutrition_search(q: str | None = None):
     """Future: look up macro/micro-nutrients from USDA FoodData Central."""
     raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail=_NOT_IMPLEMENTED)

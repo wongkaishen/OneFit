@@ -6,11 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Monorepo with two deployables:
 
-- `frontend/` — Next.js 14 (App Router) + TypeScript + React 18. PWA via `next-pwa`. One responsive web app for all three actors.
+- `frontend/` — Next.js 14 (App Router) + TypeScript + React 18 + Tailwind CSS. Covers **only the Wellness Specialist + Admin** web surfaces (the earlier PWA/`next-pwa` build serving all three actors from `src/` has been removed). Layout is `app/` (routes), `components/` (`ui/` + `shell/`), `lib/` (`api/` + helpers) — there is no `src/`.
 - `backend/` — FastAPI + async SQLAlchemy 2.0 + asyncpg. Supabase (Postgres + Auth + Storage) is the data tier.
 - `backend/supabase/migrations/` — SQL is the source of truth for the schema. SQLAlchemy ORM (`backend/app/models/entities.py`) maps onto it and does **not** create tables.
 - `docs/` — assignment PDFs (SRS, SDS v2.0). `docs/superpowers/plans/` holds implementation plans.
-- The root `README.md` describes the pre-reorg layout (when frontend lived at root). Trust `TESTING.md` and the in-tree files instead.
+- The root `README.md` and `TESTING.md` describe the pre-reorg, all-actors layout. They are stale for the frontend; trust `frontend/README.md` and the in-tree files instead.
 
 ## Commands
 
@@ -19,11 +19,14 @@ Monorepo with two deployables:
 ```bash
 npm install
 npm run dev      # http://localhost:3000 (falls back to 3001/… if taken)
-npm run build    # production build; also generates the service worker
+npm run build    # production build
+npm run start    # serve the production build
 npm run lint     # next lint
 ```
 
-`.env.local` (copy from `frontend/.env.example`): `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`.
+`.env.local` (copy from `frontend/.env.local.example`):
+- `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`
+- `NEXT_PUBLIC_DEV_JWT=<supabase access token>` — there is no login screen yet; paste a specialist or admin token to exercise the screens.
 
 ### Backend (`cd backend`)
 
@@ -45,16 +48,16 @@ python -m pytest tests/test_smoke.py::test_health -q # single test
 
 ### Frontend → backend contract
 
-- All HTTP goes through `frontend/src/api/client.ts` (`request<T>`). It attaches `Authorization: Bearer <jwt>` (from `localStorage["onefit-jwt"]`), throws a typed `ApiError`, and maps **HTTP 501 → "Not implemented yet"** — callers catch this to render "AI coming soon" UX.
-- Auth state lives in `frontend/src/auth/AuthProvider.tsx`. On mount it calls `/auth/me` to restore the session. `RequireAuth` is the route guard.
+- All HTTP goes through `frontend/lib/api/client.ts` (`request<T>`). It attaches `Authorization: Bearer <jwt>` — the token comes from `localStorage["onefit-jwt"]`, falling back to `process.env.NEXT_PUBLIC_DEV_JWT`. It throws a typed `ApiError`, and maps **HTTP 501 → "Not implemented yet"** so callers can render "AI coming soon" UX.
+- Per-subsystem call wrappers live next to the client: `lib/api/admin.ts`, `lib/api/specialist.ts`, with shared DTOs in `lib/api/types.ts`. Don't call `fetch` directly from components — add a typed wrapper here.
+- `lib/api/useResource.ts` is the standard data-loading hook: `useResource(fn, deps)` returns `{ data, error, loading, setData }`, mapping `ApiError` to a string message. Client screens use it for reads; mutations call the wrappers directly.
+- There is **no AuthProvider / RequireAuth / login flow** in this frontend (it was removed with the gym-user surface). Auth is dev-token only via the env var above.
 
 ### Frontend shell + screens
 
-- One responsive shell with a **600px breakpoint**: fixed sidebar rail ≥ 600px, hamburger drawer below. Same shell for all three actors.
-- `frontend/src/app/` — Next.js App Router pages, one folder per route (see `TESTING.md` §6 for the full route table).
-- `frontend/src/mobile/` — phone-frame components and Gym User screens (`.jsx`). `frontend/src/web/` — Specialist + Admin screens (`.jsx`). App-router pages in `src/app/` are thin TS wrappers that render these screens.
-- `frontend/src/styles/` — shared CSS: `tokens.css` (design tokens / CSS variables) and `app.css` (global app styles). Imported once from the root layout; per-screen styling builds on these tokens.
-- Role-based routing: `/` redirects per `user.role` (`gym_user` → `/dashboard`, `wellness_specialist` → `/specialist/clients`, `admin` → `/admin/dashboard`). Cross-role access bounces to `/login`.
+- `app/` — App Router routes, one folder per page. Only two actor trees exist: `app/specialist/*` and `app/admin/*`. `app/page.tsx` redirects `/` → `/specialist/clients`. Each tree has its own `layout.tsx` that renders the shared shell with its nav items. See `frontend/README.md` for the full route table.
+- `components/shell/` — `Sidebar`, `TopBar`, `Avatar` (the persistent app chrome; a fixed left sidebar, not a responsive breakpoint shell). `components/ui/` — primitives (`Button`, `Badge`, `Chip`, `Label`, `Progress`, `BarChart`, `Hairline`).
+- Design tokens live in **`tailwind.config.ts`** (the `colors` palette: `cream`/`charcoal`/`coral`/`warm-red`/`muted`/`good`…, plus `letterSpacing` `label`/`button`) and `app/globals.css` (CSS variables + base styles). Fonts are Inter (`--font-inter`, sans) and EB Garamond (`--font-garamond`, serif), wired in `app/layout.tsx`. Build new screens from these tokens — don't hardcode hex values.
 
 ### Backend subsystems (SDD §5.1)
 
@@ -63,8 +66,8 @@ python -m pytest tests/test_smoke.py::test_health -q # single test
 - `subsystems/auth/` — register, login (proxies Supabase GoTrue), `/auth/me`.
 - `subsystems/notifications/` — list + mark-read (UC10).
 - `subsystems/gym_user/` — profile, manual plans, activity & diet logs, dashboard, progress + milestones (UC7), scheduling (UC9).
-- `subsystems/wellness_specialist/` — educational content, feedback (with notify).
-- `subsystems/admin/` — user listing + status changes (writes to audit log).
+- `subsystems/wellness_specialist/` (`/specialist`) — client roster + detail, client activity/diet/progress reads, educational content, feedback (with notify), and meal plans (`public.meal_plans`).
+- `subsystems/admin/` (`/admin`) — user listing + status/role changes (writes to audit log), `/stats` KPIs, `/audit-log`, and `/announcements` (list + create). Status/role changes write to the audit log.
 - `subsystems/ai_integration/` — **DEFERRED**: every endpoint returns 501. Frontend already handles this. Manual flows are designed behind a service boundary so AI can drop in without touching actor code.
 
 Platform services: `services/audit.py`, `services/notification.py`. Core: `core/config.py` (settings), `core/database.py` (async engine/session), `core/security.py` (Supabase JWT verify + `require_role(...)` guards: `require_gym_user`, `require_specialist`, `require_admin`).
@@ -79,10 +82,10 @@ Supabase Auth issues an access token signed either with the legacy HS256 `SUPABA
 
 ### Database migrations
 
-Apply in order; `0001_init.sql` is all 20 SDD entities, `0002_rls.sql` adds RLS + the profiles trigger, `0003_harden_functions.sql` revokes public RPC execute on the trigger function. The repo notes this schema is already applied to Supabase project `cnsbxqinucvgiqknqwex`.
+Apply in order; `0001_init.sql` is all 20 SDD entities, `0002_rls.sql` adds RLS + the profiles trigger, `0003_harden_functions.sql` revokes public RPC execute on the trigger function, `0004_specialist_admin.sql` adds the `public.meal_plans` table (jsonb `payload` canvas) backing the Specialist's CreateMealPlan screen — `client_id` null means a reusable template. The repo notes this schema is already applied to Supabase project `cnsbxqinucvgiqknqwex`.
 
 ## Conventions specific to this repo
 
-- **Don't add automated frontend tests.** This is a uni-project deliverable; verification is `npm run build` + manual click-through per `TESTING.md`. Mention this explicitly when asked to "add tests" on the frontend.
+- **Don't add automated frontend tests.** This is a uni-project deliverable; verification is `npm run build` + `npm run lint` + manual click-through of the routes in `frontend/README.md` against a running backend. Mention this explicitly when asked to "add tests" on the frontend.
 - **501 is a feature, not a bug.** AI endpoints intentionally return 501; the frontend renders "AI coming soon". Don't stub them in the backend with fake data.
 - **Schema lives in SQL.** Don't add `Base.metadata.create_all` or Alembic — modify the SQL files in `backend/supabase/migrations/` and the ORM mappings together.

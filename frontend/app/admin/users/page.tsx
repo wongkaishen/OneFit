@@ -12,10 +12,16 @@ import { shortDate } from "@/lib/format";
 import type { UserOut } from "@/lib/api/types";
 
 const ROLE_FILTERS = ["All roles", "Members", "Specialists", "Admins"];
+const STATUS_FILTERS = ["All statuses", "Pending", "Active", "Suspended"];
 const roleMatch: Record<string, string> = {
   Members: "gym_user",
   Specialists: "wellness_specialist",
   Admins: "admin",
+};
+const statusMatch: Record<string, string> = {
+  Pending: "pending",
+  Active: "active",
+  Suspended: "suspended",
 };
 function statusTone(status: string): "good" | "flag" | "neutral" {
   const s = status.toLowerCase();
@@ -24,20 +30,36 @@ function statusTone(status: string): "good" | "flag" | "neutral" {
   return "neutral";
 }
 
+// Row actions depend on current status (e.g. pending users get Approve/Reject).
+function menuActions(status: string): [string, string][] {
+  const s = status.toLowerCase();
+  if (s === "pending") return [["Approve", "active"], ["Reject", "suspended"]];
+  if (s === "suspended") return [["Activate", "active"]];
+  return [["Suspend", "suspended"]];
+}
+
 const GRID = "32px 2fr 1.2fr 1.2fr 1.2fr 1fr 40px";
 
 export default function UserManagementPage() {
   const { data, error, loading, setData } = useResource<UserOut[]>(listUsers, []);
   const [role, setRole] = useState("All roles");
+  const [statusFilter, setStatusFilter] = useState("All statuses");
   const [sel, setSel] = useState<string[]>([]);
   const [menu, setMenu] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
 
   const users = useMemo(() => {
-    const list = data ?? [];
-    if (role === "All roles") return list;
-    return list.filter((u) => u.role === roleMatch[role]);
-  }, [data, role]);
+    let list = data ?? [];
+    if (role !== "All roles") list = list.filter((u) => u.role === roleMatch[role]);
+    if (statusFilter !== "All statuses")
+      list = list.filter((u) => u.status.toLowerCase() === statusMatch[statusFilter]);
+    return list;
+  }, [data, role, statusFilter]);
+
+  const pendingCount = useMemo(
+    () => (data ?? []).filter((u) => u.status.toLowerCase() === "pending").length,
+    [data],
+  );
 
   const toggle = (id: string) =>
     setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -63,10 +85,26 @@ export default function UserManagementPage() {
       <TopBar title="User management" search="Search users" avatarLetter="S" />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
+          {pendingCount > 0 && (
+            <div className="mb-4 flex items-center justify-between border border-border bg-white px-4 py-3">
+              <span className="font-sans text-[13px] text-charcoal">
+                <b className="font-semibold">{pendingCount}</b> registration
+                {pendingCount === 1 ? "" : "s"} awaiting approval
+              </span>
+              <Chip active={statusFilter === "Pending"} onClick={() => setStatusFilter("Pending")}>
+                Review pending
+              </Chip>
+            </div>
+          )}
+
           <div className="mb-[18px] flex items-center justify-between">
-            <div className="flex gap-[10px]">
+            <div className="flex flex-wrap gap-[10px]">
               {ROLE_FILTERS.map((r) => (
                 <Chip key={r} active={role === r} onClick={() => setRole(r)}>{r}</Chip>
+              ))}
+              <span className="mx-1 w-px self-stretch bg-border" />
+              {STATUS_FILTERS.map((s) => (
+                <Chip key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}>{s}</Chip>
               ))}
             </div>
             <Label>{users.length} users</Label>
@@ -134,10 +172,7 @@ export default function UserManagementPage() {
               </div>
               {menu === u.user_id && (
                 <div className="absolute right-2 top-[50px] z-20 min-w-[150px] border border-border bg-cream">
-                  {(u.status.toLowerCase() === "suspended"
-                    ? [["Activate", "active"]]
-                    : [["Suspend", "suspended"]]
-                  ).map(([label, value]) => (
+                  {menuActions(u.status).map(([label, value]) => (
                     <div
                       key={label}
                       onClick={() => changeStatus(u.user_id, value)}

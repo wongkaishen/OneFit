@@ -1,4 +1,5 @@
-import { Avatar } from "./Avatar";
+import { UserMenu } from "./UserMenu";
+import { NotificationBell } from "./NotificationBell";
 
 export function TopBar({
   title, search = "Search", avatarLetter = "W",
@@ -18,7 +19,8 @@ export function TopBar({
             className="w-full border-0 bg-transparent font-sans text-[13px] text-charcoal outline-none"
           />
         </div>
-        <Avatar letter={avatarLetter} />
+        <NotificationBell />
+        <UserMenu fallbackLetter={avatarLetter} />
       </div>
     </div>
   );

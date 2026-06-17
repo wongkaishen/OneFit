@@ -19,14 +19,23 @@ from app.core.database import get_db
 from app.core.security import CurrentUser, require_specialist
 from app.models import (
     ActivityLog,
+    CommunityGroup,
+    CommunityPost,
     DietaryLog,
     EducationalContent,
     Feedback,
     FitnessProfile,
+    GymUser,
+    HealthTrendReport,
     MealPlan,
+    Milestone,
     Profile,
     ProgressEntry,
+    WellnessTask,
+    WorkoutPlan,
+    WorkoutSession,
 )
+from app.services.audit import record_audit
 from app.services.notification import notify
 
 router = APIRouter(prefix="/specialist", tags=["wellness_specialist"])
@@ -52,6 +61,12 @@ class FeedbackIn(BaseModel):
     user_id: uuid.UUID
     notes: str
     plan_updated: bool = False
+
+
+class AnnounceIn(BaseModel):
+    title: str
+    body: str
+    audience: str = "gym_users"  # "gym_users" | "all"
 
 
 class ClientSummary(BaseModel):
@@ -96,6 +111,13 @@ async def list_content(user: SpecialistDep, db: DbDep):
 
 @router.post("/content", status_code=status.HTTP_201_CREATED)
 async def create_content(body: ContentIn, user: SpecialistDep, db: DbDep):
+    # UC3 activity diagram: the copyright/permission declaration must be confirmed
+    # before the content can be saved.
+    if not body.permission_confirmed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Copyright/permission declaration must be confirmed before saving content.",
+        )
     content = EducationalContent(
         content_id=uuid.uuid4(),
         specialist_id=uuid.UUID(user.id),
@@ -128,6 +150,28 @@ async def submit_feedback(body: FeedbackIn, user: SpecialistDep, db: DbDep):
     await db.commit()
     await db.refresh(fb)
     return fb
+
+
+# --- Broadcast an announcement to members -----------------------------------
+@router.post("/announcements", status_code=status.HTTP_201_CREATED)
+async def announce(body: AnnounceIn, user: SpecialistDep, db: DbDep):
+    """Specialist broadcast. The announcements table FK-references admins, so a
+    specialist announcement is delivered purely via the notification fan-out
+    (reaching each recipient's bell + notifications page)."""
+    if body.audience not in {"gym_users", "all"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="audience must be 'gym_users' or 'all'",
+        )
+    stmt = select(Profile.id)
+    if body.audience == "gym_users":
+        stmt = stmt.where(Profile.role == "gym_user")
+    recipients = (await db.execute(stmt)).scalars().all()
+    message = f"{body.title}\n\n{body.body}" if body.body.strip() else body.title
+    for rid in recipients:
+        await notify(db, recipient_id=rid, type="announcement", message=message)
+    await db.commit()
+    return {"sent": len(recipients), "audience": body.audience}
 
 
 # --- UC1: Review client roster + progress -----------------------------------
@@ -252,3 +296,233 @@ async def create_meal_plan(body: MealPlanIn, user: SpecialistDep, db: DbDep):
     await db.commit()
     await db.refresh(plan)
     return plan
+
+
+# --- UC2: Assign Customized Wellness Tasks ----------------------------------
+class WellnessTaskIn(BaseModel):
+    target_id: uuid.UUID
+    type: str
+    description: str
+    target_metric: str | None = None
+    due_date: dt.date
+
+
+class WellnessTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    task_id: uuid.UUID
+    specialist_id: uuid.UUID
+    target_id: uuid.UUID
+    type: str
+    description: str
+    target_metric: str | None = None
+    due_date: dt.date
+    status: str
+
+
+@router.get("/tasks", response_model=list[WellnessTaskOut])
+async def list_tasks(user: SpecialistDep, db: DbDep):
+    result = await db.execute(
+        select(WellnessTask)
+        .where(WellnessTask.specialist_id == uuid.UUID(user.id))
+        .order_by(WellnessTask.due_date)
+    )
+    return result.scalars().all()
+
+
+@router.post("/tasks", status_code=status.HTTP_201_CREATED, response_model=WellnessTaskOut)
+async def assign_task(body: WellnessTaskIn, user: SpecialistDep, db: DbDep):
+    """Assign a wellness task to a gym user (UC2): validate, store as Assigned,
+    notify the target. Input validation that the diagram loops on is enforced here."""
+    if not body.type.strip() or not body.description.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="type and description are required",
+        )
+    if body.due_date < dt.date.today():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="due_date cannot be in the past",
+        )
+    target = await db.get(Profile, body.target_id)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target user not found")
+
+    task = WellnessTask(
+        task_id=uuid.uuid4(),
+        specialist_id=uuid.UUID(user.id),
+        target_id=body.target_id,
+        type=body.type,
+        description=body.description,
+        target_metric=body.target_metric,
+        due_date=body.due_date,
+        status="Assigned",
+    )
+    db.add(task)
+    await notify(
+        db,
+        recipient_id=body.target_id,
+        type="task",
+        message=f"New wellness task assigned: {body.type} (due {body.due_date.isoformat()})",
+    )
+    await db.commit()
+    await db.refresh(task)
+    return task
+
+
+# --- UC5: Monitor Gym User Wellness Community Groups -------------------------
+class ModerateIn(BaseModel):
+    # "remove" | "warn" | "escalate"
+    action: str
+    severity: str | None = None  # low | medium | high (used for escalate)
+
+
+@router.get("/community/groups")
+async def list_community_groups(user: SpecialistDep, db: DbDep):
+    result = await db.execute(
+        select(CommunityGroup)
+        .where(CommunityGroup.specialist_id == uuid.UUID(user.id))
+        .order_by(CommunityGroup.name)
+    )
+    return [
+        {"group_id": g.group_id, "name": g.name, "description": g.description}
+        for g in result.scalars().all()
+    ]
+
+
+@router.get("/community/groups/{group_id}/posts")
+async def list_group_posts(group_id: uuid.UUID, user: SpecialistDep, db: DbDep):
+    """Recent posts + flagged items for a group the specialist owns (UC5)."""
+    group = await db.get(CommunityGroup, group_id)
+    if group is None or group.specialist_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    result = await db.execute(
+        select(CommunityPost)
+        .where(CommunityPost.group_id == group_id)
+        .order_by(CommunityPost.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/community/posts/{post_id}/moderate")
+async def moderate_post(post_id: uuid.UUID, body: ModerateIn, user: SpecialistDep, db: DbDep):
+    """Take a moderation action on a post (UC5).
+
+    high-severity escalates to Admin; otherwise the post is removed or the
+    author warned. The action is logged and the author notified.
+    """
+    post = await db.get(CommunityPost, post_id)
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    # The post must belong to a group this specialist owns.
+    group = await db.get(CommunityGroup, post.group_id)
+    if group is None or group.specialist_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your group")
+
+    action = body.action
+    if action == "escalate" or body.severity == "high":
+        post.status = "Escalated"
+        post.severity = body.severity or "high"
+        # Escalate to every admin.
+        admins = (await db.execute(select(Profile.id).where(Profile.role == "admin"))).scalars().all()
+        for aid in admins:
+            await notify(
+                db,
+                recipient_id=aid,
+                type="moderation",
+                message=f"Post {post_id} escalated for review (severity {post.severity}).",
+            )
+        author_msg = "A post of yours has been escalated for admin review."
+    elif action == "remove":
+        post.status = "Removed"
+        post.severity = body.severity
+        author_msg = "A post of yours was removed for violating community guidelines."
+    elif action == "warn":
+        post.status = "Flagged"
+        post.severity = body.severity or "low"
+        author_msg = "A post of yours was flagged. Please review the community guidelines."
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="action must be 'remove', 'warn', or 'escalate'",
+        )
+
+    await notify(db, recipient_id=post.author_id, type="moderation", message=author_msg)
+    await record_audit(
+        db,
+        actor_id=uuid.UUID(user.id),
+        action=f"moderate_post_{action}",
+        details=f"post {post_id} -> {post.status}",
+    )
+    await db.commit()
+    await db.refresh(post)
+    return post
+
+
+# --- UC6: Review Health Trends to Improve Program ---------------------------
+class TrendIn(BaseModel):
+    cohort: str = "all_gym_users"
+    period: str = "all_time"
+
+
+@router.get("/health-trends")
+async def list_health_trends(user: SpecialistDep, db: DbDep):
+    result = await db.execute(
+        select(HealthTrendReport)
+        .where(HealthTrendReport.specialist_id == uuid.UUID(user.id))
+        .order_by(HealthTrendReport.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/health-trends", status_code=status.HTTP_201_CREATED)
+async def create_health_trend(body: TrendIn, user: SpecialistDep, db: DbDep):
+    """Aggregate anonymized cohort metrics and persist a trend report (UC6).
+
+    Metrics over all gym users (cohort filtering by name only, for the MVP):
+      - adherence:            completed / total scheduled sessions  (%)
+      - avg_calories:         mean daily dietary calories
+      - activity_consistency: gym users with >=1 activity log / total gym users (%)
+      - milestone_rate:       gym users with >=1 milestone / total gym users (%)
+    No per-user identifiers are stored or returned — only aggregates.
+    """
+    total_gym = (await db.execute(select(func.count(GymUser.user_id)))).scalar_one()
+
+    sessions = (
+        await db.execute(
+            select(WorkoutSession.status, func.count())
+            .where(WorkoutSession.status.in_(["completed", "missed", "scheduled"]))
+            .group_by(WorkoutSession.status)
+        )
+    ).all()
+    counts = {s: c for s, c in sessions}
+    total_sessions = sum(counts.values())
+    adherence = round(100.0 * counts.get("completed", 0) / total_sessions, 2) if total_sessions else None
+
+    avg_cal = (await db.execute(select(func.avg(DietaryLog.calories)))).scalar()
+    avg_calories = round(float(avg_cal), 2) if avg_cal is not None else None
+
+    users_with_activity = (
+        await db.execute(select(func.count(func.distinct(ActivityLog.user_id))))
+    ).scalar_one()
+    users_with_milestone = (
+        await db.execute(select(func.count(func.distinct(Milestone.user_id))))
+    ).scalar_one()
+    activity_consistency = round(100.0 * users_with_activity / total_gym, 2) if total_gym else None
+    milestone_rate = round(100.0 * users_with_milestone / total_gym, 2) if total_gym else None
+
+    report = HealthTrendReport(
+        report_id=uuid.uuid4(),
+        specialist_id=uuid.UUID(user.id),
+        cohort=body.cohort,
+        period=body.period,
+        adherence=adherence,
+        avg_calories=avg_calories,
+        activity_consistency=activity_consistency,
+        milestone_rate=milestone_rate,
+        created_at=_now(),
+    )
+    db.add(report)
+    await db.commit()
+    await db.refresh(report)
+    return report
