@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  /* raw tokens for places where utilities are awkward */
+  --cream: #FAF6F0;
+  --charcoal: #1F1D1B;
+  --muted: #8A857D;
+  --subtle: #5C5852;
+  --border: #D8D0C2;
+  --coral: #E85D4A;
+}
+
+html, body { padding: 0; margin: 0; }
+body { background: var(--cream); color: var(--charcoal); }
+* { box-sizing: border-box; }
