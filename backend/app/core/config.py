@@ -12,7 +12,9 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_anon_key: str
     supabase_service_role_key: str
-    supabase_jwt_secret: str
+    # Legacy HS256 secret. Optional: projects on the new asymmetric JWT keys
+    # sign tokens with ES256/RS256 and the backend verifies via JWKS instead.
+    supabase_jwt_secret: str | None = None
 
     # Database (async SQLAlchemy / asyncpg)
     database_url: str

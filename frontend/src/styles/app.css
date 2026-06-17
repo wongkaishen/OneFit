@@ -1,0 +1,198 @@
+@import "./tokens.css";
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+html { background: var(--cream); }
+body {
+  font-family: var(--font-sans);
+  color: var(--charcoal);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button { font: inherit; }
+input { font: inherit; }
+
+/* Responsive mobile shell — used by every Gym User screen.
+   Phone: fills viewport, no frame.
+   Tablet / desktop: 480-px column centered in a darker frame so the
+   app reads like a phone app you're previewing. */
+.onefit-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  background: var(--cream);
+}
+
+.onefit-shell-screen {
+  width: 100%;
+  background: var(--shell-bg, var(--cream));
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (min-width: 768px) {
+  .onefit-shell {
+    background: #E7E1D7;
+    padding: 24px;
+  }
+  .onefit-shell-screen {
+    max-width: 480px;
+    min-height: min(844px, calc(100vh - 48px));
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+  }
+}
+
+@keyframes onefit-bar-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(var(--pct, 1)); }
+}
+
+/* ============================================================
+   Responsive WebShell — one consistent sidebar layout for every
+   actor (Gym User, Wellness Specialist, Admin).
+   Desktop-first: sidebar is a fixed rail. Below 600px it becomes a
+   slide-in drawer toggled by a hamburger in the top bar.
+   ============================================================ */
+.ws-root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  background: var(--cream);
+  font-family: var(--font-sans);
+}
+
+.ws-sidebar {
+  width: 240px;
+  flex: 0 0 auto;
+  border-right: 1px solid var(--border);
+  background: var(--cream);
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-hamburger {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--charcoal);
+  padding: 0 4px 0 0;
+}
+
+.ws-backdrop { display: none; }
+
+@media (max-width: 600px) {
+  .ws-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 0 0 28px rgba(0, 0, 0, 0.16);
+  }
+  .ws-sidebar.open { transform: translateX(0); }
+  .ws-hamburger { display: inline-flex; align-items: center; }
+  .ws-backdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* ============================================================
+   Responsive content grids — desktop multi-column, collapse to a
+   single column below 600px.
+   ============================================================ */
+.og-cols {
+  display: grid;
+  gap: 36px;
+  grid-template-columns: 1.4fr 1fr;
+  align-items: start;
+}
+.og-cols-even {
+  display: grid;
+  gap: 36px;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+}
+
+/* KPI strip: bordered box, vertical separators on desktop,
+   horizontal separators when stacked. */
+.og-kpi {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--border);
+}
+.og-kpi > * + * { border-left: 1px solid var(--border); }
+
+@media (max-width: 600px) {
+  .og-cols,
+  .og-cols-even { grid-template-columns: 1fr; gap: 28px; }
+  .og-kpi { grid-template-columns: 1fr; }
+  .og-kpi > * + * { border-left: none; border-top: 1px solid var(--border); }
+}
+
+/* ============================================================
+   Specialist / Admin screen grids — desktop multi-column,
+   collapse to a single column below 600px.
+   ============================================================ */
+
+/* Admin dashboard 4-up KPI strip */
+.adm-kpi { display: grid; grid-template-columns: repeat(4, 1fr); }
+
+/* Content & programs card grid */
+.adm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+
+/* Client detail 3-up columns */
+.cd-cols { display: grid; grid-template-columns: 1.3fr 1fr 1fr; align-items: stretch; }
+
+/* Create meal plan: editor + live summary */
+.mp-cols { display: grid; grid-template-columns: 1fr 320px; }
+
+/* Wide data tables (client list, user management): scroll horizontally
+   on small screens rather than crushing the fixed columns. */
+.ws-tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.ws-table { min-width: 720px; }
+
+@media (max-width: 600px) {
+  .adm-kpi { grid-template-columns: 1fr; }
+  .adm-kpi > * { border-right: none !important; }
+  .adm-kpi > * + * { border-top: 1px solid var(--border); }
+
+  .adm-grid { grid-template-columns: 1fr; }
+
+  .cd-cols { grid-template-columns: 1fr; gap: 28px; }
+  .cd-cols > * { border-right: none !important; padding: 0 !important; }
+
+  .mp-cols { grid-template-columns: 1fr; }
+  .mp-cols > * { border-left: none !important; padding: 0 !important; }
+}

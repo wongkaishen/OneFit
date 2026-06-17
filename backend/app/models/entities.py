@@ -19,7 +19,7 @@ from sqlalchemy import (
     Text,
     Time,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -301,6 +301,24 @@ class HealthTrendReport(Base):
     avg_calories: Mapped[float | None] = mapped_column(Numeric(7, 2))
     activity_consistency: Mapped[float | None] = mapped_column(Numeric(5, 2))
     milestone_rate: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+
+
+# --- MealPlan (specialist-authored, 0004 migration) -------------------------
+class MealPlan(Base):
+    __tablename__ = "meal_plans"
+
+    plan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    specialist_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wellness_specialists.user_id", ondelete="CASCADE")
+    )
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("gym_users.user_id", ondelete="CASCADE")
+    )
+    name: Mapped[str] = mapped_column(Text)
+    goal: Mapped[str] = mapped_column(Text, default="maintain")
+    days_per_week: Mapped[int] = mapped_column(Integer, default=7)
+    payload: Mapped[list | dict] = mapped_column(JSONB)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
 
 

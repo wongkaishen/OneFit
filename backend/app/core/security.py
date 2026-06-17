@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Annotated
 
 import jwt
@@ -18,13 +19,55 @@ class CurrentUser(BaseModel):
     """Authenticated principal, resolved from the Supabase JWT + profiles row."""
 
     id: str
+    user_id: str
+    name: str | None = None
     email: str | None = None
     role: str
     status: str
 
 
+@lru_cache(maxsize=1)
+def _jwks_client() -> jwt.PyJWKClient:
+    """Cached JWKS client pointed at this project's GoTrue."""
+    return jwt.PyJWKClient(
+        f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json",
+        cache_keys=True,
+    )
+
+
 def _decode_token(token: str) -> dict:
+    """Verify a Supabase access token.
+
+    Supabase issues tokens via two mechanisms: legacy projects sign with the
+    static HS256 `JWT Secret`; newer projects sign with asymmetric keys
+    (ES256/RS256) and publish the public keys via JWKS. The presence of a
+    `kid` in the header selects the path.
+    """
     try:
+        header = jwt.get_unverified_header(token)
+    except jwt.PyJWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Malformed token",
+        ) from exc
+
+    kid = header.get("kid")
+    alg = header.get("alg", "HS256")
+
+    try:
+        if kid and alg != "HS256":
+            signing_key = _jwks_client().get_signing_key_from_jwt(token).key
+            return jwt.decode(
+                token,
+                signing_key,
+                algorithms=[alg],
+                audience="authenticated",
+            )
+        if not settings.supabase_jwt_secret:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="HS256 token rejected: no SUPABASE_JWT_SECRET configured",
+            )
         return jwt.decode(
             token,
             settings.supabase_jwt_secret,
@@ -50,7 +93,7 @@ async def get_current_user(
 
     row = (
         await db.execute(
-            text("select id, email, role, status from public.profiles where id = :id"),
+            text("select id, name, email, role, status from public.profiles where id = :id"),
             {"id": user_id},
         )
     ).mappings().first()
@@ -58,7 +101,15 @@ async def get_current_user(
     if row is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No profile for this user")
 
-    return CurrentUser(id=str(row["id"]), email=row["email"], role=row["role"], status=row["status"])
+    rid = str(row["id"])
+    return CurrentUser(
+        id=rid,
+        user_id=rid,
+        name=row["name"],
+        email=row["email"],
+        role=row["role"],
+        status=row["status"],
+    )
 
 
 def require_role(*roles: str):
