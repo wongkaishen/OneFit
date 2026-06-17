@@ -1,0 +1,16 @@
+import { Sidebar, type NavItem } from "@/components/shell/Sidebar";
+
+const ADMIN_NAV: NavItem[] = [
+  { label: "Dashboard", href: "/admin/dashboard" },
+  { label: "Users", href: "/admin/users" },
+  { label: "Announcements", href: "/admin/announcements" },
+];
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-screen bg-cream font-sans">
+      <Sidebar items={ADMIN_NAV} role="Administrator" accent="charcoal" />
+      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+    </div>
+  );
+}
