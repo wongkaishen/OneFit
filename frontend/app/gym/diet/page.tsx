@@ -4,7 +4,10 @@ import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { ApiError } from "@/lib/api/client";
-import { logDiet } from "@/lib/api/gym";
+import { logDiet, listMealPlans } from "@/lib/api/gym";
+import { useResource } from "@/lib/api/useResource";
+import { MealPlanCard } from "@/components/MealPlanCard";
+import type { MealPlanOut } from "@/lib/api/types";
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -13,6 +16,7 @@ function today(): string {
 const MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
 export default function GymDietPage() {
+  const mealPlans = useResource<MealPlanOut[]>(listMealPlans, []);
   const [mealTime, setMealTime] = useState(MEALS[0]);
   const [foodItem, setFoodItem] = useState("");
   const [calories, setCalories] = useState("");
@@ -74,6 +78,20 @@ export default function GymDietPage() {
       <TopBar title="Log diet" search="Search" avatarLetter="G" />
       <main className="flex-1 overflow-auto">
         <div className="max-w-[560px] px-9 py-[30px]">
+          <Label>Your meal plan</Label>
+          <div className="mt-3">
+            {mealPlans.loading && <Label>Loading…</Label>}
+            {mealPlans.error && <div className="text-[13px] text-coral">{mealPlans.error}</div>}
+            {!mealPlans.loading && (mealPlans.data ?? []).length === 0 && (
+              <div className="mb-5 border border-border bg-white p-5">
+                <Label>No meal plan from your specialist yet.</Label>
+              </div>
+            )}
+            {(mealPlans.data ?? []).map((p) => (
+              <MealPlanCard key={p.plan_id} plan={p} />
+            ))}
+          </div>
+
           <Label>Dietary intake</Label>
           <form onSubmit={submit} className="mt-5 flex flex-col gap-5">
             <div className="flex flex-col gap-2">

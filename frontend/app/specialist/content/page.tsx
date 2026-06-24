@@ -6,7 +6,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useResource } from "@/lib/api/useResource";
-import { listContent, createContent } from "@/lib/api/specialist";
+import { listContent, createContent, updateContent } from "@/lib/api/specialist";
 import type { ContentOut } from "@/lib/api/types";
 
 const FILTERS = ["All", "Draft", "Published"];
@@ -21,15 +21,42 @@ export default function ContentPage() {
   const { data, error, loading, setData } = useResource<ContentOut[]>(listContent, []);
   const [filter, setFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", body: "", category: "", media_url: "", permission_confirmed: false });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
 
   const shown = useMemo(() => {
     const list = data ?? [];
     if (filter === "All") return list;
     return list.filter((c) => c.status.toLowerCase().includes(filter.toLowerCase()));
   }, [data, filter]);
+
+  const resetForm = () => {
+    setForm({ title: "", body: "", category: "", media_url: "", permission_confirmed: false });
+    setEditingId(null);
+    setErr(null);
+  };
+
+  const openCreate = () => {
+    if (showForm) { setShowForm(false); resetForm(); return; }
+    resetForm();
+    setShowForm(true);
+  };
+
+  const openEdit = (c: ContentOut) => {
+    setEditingId(c.content_id);
+    setForm({
+      title: c.title,
+      body: c.body,
+      category: c.category,
+      media_url: c.media_url ?? "",
+      permission_confirmed: true, // already declared when first saved
+    });
+    setErr(null);
+    setShowForm(true);
+  };
 
   const submit = async () => {
     if (!form.title.trim() || !form.body.trim() || !form.category.trim()) {
@@ -39,20 +66,42 @@ export default function ContentPage() {
     setBusy(true);
     setErr(null);
     try {
-      const created = await createContent({
-        title: form.title,
-        body: form.body,
-        category: form.category,
-        media_url: form.media_url || null,
-        permission_confirmed: form.permission_confirmed,
-      });
-      setData([created, ...(data ?? [])]);
+      if (editingId) {
+        const updated = await updateContent(editingId, {
+          title: form.title,
+          body: form.body,
+          category: form.category,
+          media_url: form.media_url || null,
+        });
+        setData((data ?? []).map((c) => (c.content_id === editingId ? updated : c)));
+      } else {
+        const created = await createContent({
+          title: form.title,
+          body: form.body,
+          category: form.category,
+          media_url: form.media_url || null,
+          permission_confirmed: form.permission_confirmed,
+        });
+        setData([created, ...(data ?? [])]);
+      }
       setShowForm(false);
-      setForm({ title: "", body: "", category: "", media_url: "", permission_confirmed: false });
+      resetForm();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to create");
+      setErr(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const changeStatus = async (c: ContentOut, status: "Published" | "Archived" | "Draft") => {
+    setRowBusy(c.content_id);
+    try {
+      const updated = await updateContent(c.content_id, { status });
+      setData((data ?? []).map((x) => (x.content_id === c.content_id ? updated : x)));
+    } catch {
+      /* surfaced via list refresh on next load */
+    } finally {
+      setRowBusy(null);
     }
   };
 
@@ -67,7 +116,7 @@ export default function ContentPage() {
                 <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>
               ))}
             </div>
-            <Button size="sm" onClick={() => setShowForm((s) => !s)}>
+            <Button size="sm" onClick={openCreate}>
               {showForm ? "Close" : "+ Create content"}
             </Button>
           </div>
@@ -88,13 +137,22 @@ export default function ContentPage() {
               <input placeholder="Media URL (optional)" value={form.media_url}
                 onChange={(e) => setForm({ ...form, media_url: e.target.value })}
                 className="mt-3 w-full border border-border bg-white p-2 font-sans text-[13px] outline-none" />
-              <label className="mt-3 flex items-center gap-2 font-sans text-[12px] text-subtle">
-                <input type="checkbox" checked={form.permission_confirmed}
-                  onChange={(e) => setForm({ ...form, permission_confirmed: e.target.checked })} />
-                I confirm I have the rights to publish this content.
-              </label>
+              {!editingId && (
+                <label className="mt-3 flex items-center gap-2 font-sans text-[12px] text-subtle">
+                  <input type="checkbox" checked={form.permission_confirmed}
+                    onChange={(e) => setForm({ ...form, permission_confirmed: e.target.checked })} />
+                  I confirm I have the rights to publish this content.
+                </label>
+              )}
               {err && <div className="mt-3 font-sans text-[12px] text-coral">{err}</div>}
-              <div className="mt-4"><Button size="sm" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Save content"}</Button></div>
+              <div className="mt-4 flex items-center gap-3">
+                <Button size="sm" onClick={submit} disabled={busy}>
+                  {busy ? "Saving…" : editingId ? "Update content" : "Save content"}
+                </Button>
+                {editingId && (
+                  <span className="font-sans text-[11px] text-muted">Editing existing content</span>
+                )}
+              </div>
             </div>
           )}
 
@@ -108,10 +166,41 @@ export default function ContentPage() {
                 <div><Badge tone={toneFor(p.status)}>{p.status}</Badge></div>
                 <div className="mt-[18px] font-sans text-[18px] font-semibold text-charcoal">{p.title}</div>
                 <div className="mt-2 font-sans text-[12px] text-muted">{p.category}</div>
-                <div className="mt-auto pt-[18px]">
-                  <span className="cursor-pointer border-b border-charcoal pb-[2px] font-sans text-[10px] font-bold uppercase tracking-label text-charcoal">
+                <div className="mt-auto flex flex-wrap items-center gap-4 pt-[18px]">
+                  <button
+                    onClick={() => openEdit(p)}
+                    disabled={rowBusy === p.content_id}
+                    className="cursor-pointer border-b border-charcoal pb-[2px] font-sans text-[10px] font-bold uppercase tracking-label text-charcoal disabled:opacity-40"
+                  >
                     Edit
-                  </span>
+                  </button>
+                  {p.status !== "Published" && (
+                    <button
+                      onClick={() => changeStatus(p, "Published")}
+                      disabled={rowBusy === p.content_id}
+                      className="cursor-pointer border-b border-good pb-[2px] font-sans text-[10px] font-bold uppercase tracking-label text-good disabled:opacity-40"
+                    >
+                      {rowBusy === p.content_id ? "…" : "Publish"}
+                    </button>
+                  )}
+                  {p.status !== "Archived" && (
+                    <button
+                      onClick={() => changeStatus(p, "Archived")}
+                      disabled={rowBusy === p.content_id}
+                      className="cursor-pointer border-b border-muted pb-[2px] font-sans text-[10px] font-bold uppercase tracking-label text-muted disabled:opacity-40"
+                    >
+                      Archive
+                    </button>
+                  )}
+                  {p.status === "Archived" && (
+                    <button
+                      onClick={() => changeStatus(p, "Draft")}
+                      disabled={rowBusy === p.content_id}
+                      className="cursor-pointer border-b border-muted pb-[2px] font-sans text-[10px] font-bold uppercase tracking-label text-muted disabled:opacity-40"
+                    >
+                      Restore
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

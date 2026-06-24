@@ -6,6 +6,7 @@ import type {
   GymDietIn, GymDietLog,
   GymMilestone,
   GymProgressEntry, GymProgressIn,
+  MealPlanOut,
   WorkoutPlan,
   WorkoutSession, WorkoutSessionIn,
 } from "./types";
@@ -37,6 +38,9 @@ export const listProgress = () => request<GymProgressEntry[]>("/gym/progress");
 export const addProgress = (body: GymProgressIn) =>
   request<GymProgressEntry>("/gym/progress", { method: "POST", body: JSON.stringify(body) });
 export const listMilestones = () => request<GymMilestone[]>("/gym/milestones");
+
+// Meal plans published to me by a wellness specialist
+export const listMealPlans = () => request<MealPlanOut[]>("/gym/meal-plans");
 
 // Scheduled sessions
 export const listSessions = () => request<WorkoutSession[]>("/gym/sessions");

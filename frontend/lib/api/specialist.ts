@@ -21,6 +21,16 @@ export const listContent = () => request<ContentOut[]>("/specialist/content");
 export const createContent = (body: ContentIn) =>
   request<ContentOut>("/specialist/content", { method: "POST", body: JSON.stringify(body) });
 
+export interface ContentUpdate {
+  title?: string;
+  body?: string;
+  category?: string;
+  media_url?: string | null;
+  status?: "Draft" | "Published" | "Archived";
+}
+export const updateContent = (id: string, body: ContentUpdate) =>
+  request<ContentOut>(`/specialist/content/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+
 export const submitFeedback = (body: FeedbackIn) =>
   request<unknown>("/specialist/feedback", { method: "POST", body: JSON.stringify(body) });
 

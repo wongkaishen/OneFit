@@ -1,0 +1,17 @@
+OneFit — how to run
+
+== Backend ==
+
+cd backend
+source env/bin/activate
+uvicorn app.main:app --reload
+
+Backend: http://localhost:8000
+Swagger: http://localhost:8000/docs
+
+== Frontend (new terminal) ==
+
+cd frontend
+npm run dev
+
+Website: http://localhost:3000

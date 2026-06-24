@@ -21,6 +21,7 @@ from app.models import (
     ActivityLog,
     DietaryLog,
     FitnessProfile,
+    MealPlan,
     Milestone,
     ProgressEntry,
     WorkoutPlan,
@@ -209,6 +210,18 @@ async def add_progress(body: ProgressEntryIn, user: GymUserDep, db: DbDep):
     await db.refresh(entry)
     # AI-driven plan-recalculation prompt on a significant change is deferred.
     return entry
+
+
+# --- Meal plans assigned by a wellness specialist ---------------------------
+@router.get("/meal-plans")
+async def list_meal_plans(user: GymUserDep, db: DbDep):
+    """Meal plans a specialist has published to this gym user (client_id == me)."""
+    result = await db.execute(
+        select(MealPlan)
+        .where(MealPlan.client_id == uuid.UUID(user.id))
+        .order_by(MealPlan.created_at.desc())
+    )
+    return result.scalars().all()
 
 
 @router.get("/milestones")

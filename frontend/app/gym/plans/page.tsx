@@ -7,12 +7,14 @@ import { Badge } from "@/components/ui/Badge";
 import { Hairline } from "@/components/ui/Hairline";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
-import { listPlans, createPlan } from "@/lib/api/gym";
+import { listPlans, createPlan, listMealPlans } from "@/lib/api/gym";
 import { shortDate } from "@/lib/format";
-import type { WorkoutPlan } from "@/lib/api/types";
+import { MealPlanCard } from "@/components/MealPlanCard";
+import type { WorkoutPlan, MealPlanOut } from "@/lib/api/types";
 
 export default function GymPlansPage() {
   const { data, error, loading, setData } = useResource<WorkoutPlan[]>(listPlans, []);
+  const mealPlans = useResource<MealPlanOut[]>(listMealPlans, []);
   const [goal, setGoal] = useState("");
   const [busy, setBusy] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
@@ -38,6 +40,20 @@ export default function GymPlansPage() {
       <TopBar title="Workout plans" search="Search" avatarLetter="G" />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
+          <Label>Meal plan from your specialist</Label>
+          <div className="mt-3">
+            {mealPlans.loading && <Label>Loading…</Label>}
+            {mealPlans.error && <div className="text-[13px] text-coral">{mealPlans.error}</div>}
+            {!mealPlans.loading && (mealPlans.data ?? []).length === 0 && (
+              <div className="mb-8 border border-border bg-white p-5">
+                <Label>No meal plan from your specialist yet.</Label>
+              </div>
+            )}
+            {(mealPlans.data ?? []).map((p) => (
+              <MealPlanCard key={p.plan_id} plan={p} />
+            ))}
+          </div>
+
           <Label>Create a plan</Label>
           <form onSubmit={create} className="mt-4 flex items-end gap-3">
             <div className="flex flex-1 flex-col gap-2">

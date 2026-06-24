@@ -7,6 +7,7 @@ the AI providers. Routers are organised by SDD subsystem.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 
 from app.core.config import get_settings
 from app.subsystems.admin.router import router as admin_router
@@ -18,11 +19,39 @@ from app.subsystems.wellness_specialist.router import router as specialist_route
 
 settings = get_settings()
 
+# Default docs are disabled so we can serve Swagger UI / ReDoc assets from unpkg.
+# FastAPI's built-in /docs loads from cdn.jsdelivr.net, which is unreachable on
+# some networks (blank page); unpkg is reachable, so we point the assets there.
 app = FastAPI(
     title="OneFit API",
     version="0.1.0",
     description="Backend for the OneFit digital wellness platform (SDD v2.0).",
+    docs_url=None,
+    redoc_url=None,
 )
+
+_SWAGGER_JS = "https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"
+_SWAGGER_CSS = "https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"
+_REDOC_JS = "https://unpkg.com/redoc@next/bundles/redoc.standalone.js"
+
+
+@app.get("/docs", include_in_schema=False)
+async def swagger_ui():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - Swagger UI",
+        swagger_js_url=_SWAGGER_JS,
+        swagger_css_url=_SWAGGER_CSS,
+    )
+
+
+@app.get("/redoc", include_in_schema=False)
+async def redoc_ui():
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - ReDoc",
+        redoc_js_url=_REDOC_JS,
+    )
 
 app.add_middleware(
     CORSMiddleware,

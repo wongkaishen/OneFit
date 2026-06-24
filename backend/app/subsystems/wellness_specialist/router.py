@@ -57,6 +57,14 @@ class ContentIn(BaseModel):
     permission_confirmed: bool = False
 
 
+class ContentUpdate(BaseModel):
+    title: str | None = None
+    body: str | None = None
+    category: str | None = None
+    media_url: str | None = None
+    status: str | None = None  # Draft | Published | Archived
+
+
 class FeedbackIn(BaseModel):
     user_id: uuid.UUID
     notes: str
@@ -132,9 +140,45 @@ async def create_content(body: ContentIn, user: SpecialistDep, db: DbDep):
     return content
 
 
+VALID_CONTENT_STATUS = {"Draft", "Published", "Archived"}
+
+
+@router.patch("/content/{content_id}")
+async def update_content(content_id: uuid.UUID, body: ContentUpdate, user: SpecialistDep, db: DbDep):
+    """Edit a draft or change its status (publish / archive). Owner only."""
+    content = await db.get(EducationalContent, content_id)
+    if content is None or content.specialist_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
+    if body.status is not None and body.status not in VALID_CONTENT_STATUS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"status must be one of {sorted(VALID_CONTENT_STATUS)}",
+        )
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(content, field, value)
+    # Keep visibility consistent: archived content is hidden, otherwise visible.
+    if body.status == "Archived":
+        content.visibility = False
+    elif body.status in ("Published", "Draft"):
+        content.visibility = True
+    await db.commit()
+    await db.refresh(content)
+    return content
+
+
 # --- UC4: Provide Professional Feedback -------------------------------------
 @router.post("/feedback", status_code=status.HTTP_201_CREATED)
 async def submit_feedback(body: FeedbackIn, user: SpecialistDep, db: DbDep):
+    # Feedback may only be directed at a current gym user (see create_meal_plan:
+    # a former gym user keeps a stale gym_users row, so check profiles.role).
+    client = await db.get(Profile, body.user_id)
+    if client is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    if client.role != "gym_user":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Feedback can only be sent to gym users.",
+        )
     fb = Feedback(
         feedback_id=uuid.uuid4(),
         specialist_id=uuid.UUID(user.id),
@@ -275,6 +319,19 @@ async def list_meal_plans(user: SpecialistDep, db: DbDep):
 
 @router.post("/meal-plans", status_code=status.HTTP_201_CREATED, response_model=MealPlanOut)
 async def create_meal_plan(body: MealPlanIn, user: SpecialistDep, db: DbDep):
+    # A plan may target a specific client or be a reusable template (client_id None).
+    # If targeted, the recipient must currently be a gym user — a former gym user
+    # who was promoted to admin/specialist keeps a stale gym_users row, so we check
+    # the authoritative profiles.role rather than relying on the FK alone.
+    if body.client_id is not None:
+        client = await db.get(Profile, body.client_id)
+        if client is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        if client.role != "gym_user":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Meal plans can only be assigned to gym users.",
+            )
     plan = MealPlan(
         plan_id=uuid.uuid4(),
         specialist_id=uuid.UUID(user.id),
