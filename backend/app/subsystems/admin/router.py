@@ -296,9 +296,16 @@ async def create_announcement(body: AnnouncementIn, admin: AdminDep, db: DbDep):
     elif body.target_audience == "specialists":
         audience_stmt = audience_stmt.where(Profile.role == "wellness_specialist")
     recipients = (await db.execute(audience_stmt)).scalars().all()
-    message = f"{body.title}\n\n{body.body}" if body.body.strip() else body.title
     for rid in recipients:
-        await notify(db, recipient_id=rid, type="announcement", message=message)
+        await notify(
+            db,
+            recipient_id=rid,
+            type="announcement",
+            title=body.title,
+            body=body.body,
+            ref_type="announcement",
+            ref_id=ann.announcement_id,
+        )
 
     await record_audit(
         db,
@@ -341,7 +348,8 @@ async def approve_registration(user_id: uuid.UUID, admin: AdminDep, db: DbDep):
         db,
         recipient_id=user_id,
         type="account",
-        message="Welcome to OneFit! Your account has been approved.",
+        title="Welcome to OneFit!",
+        body="Your account has been approved. You now have full access to the app.",
     )
     target = profile.name or profile.email or str(user_id)
     await record_audit(db, actor_id=uuid.UUID(admin.id), action="approve_registration",
@@ -372,7 +380,8 @@ async def reject_registration(user_id: uuid.UUID, body: RejectIn, admin: AdminDe
         db,
         recipient_id=user_id,
         type="account",
-        message=f"Your OneFit registration was not approved. Reason: {reason}",
+        title="Registration update",
+        body=f"Your OneFit registration was not approved. Reason: {reason}",
     )
     target = profile.name or profile.email or str(user_id)
     await record_audit(db, actor_id=uuid.UUID(admin.id), action="reject_registration",
@@ -501,9 +510,14 @@ async def send_notification(body: NotifyIn, admin: AdminDep, db: DbDep):
             detail="audience must be 'user', 'gym_users', 'specialists', or 'all'",
         )
 
-    message = f"{body.title}\n\n{body.message}" if body.title else body.message
     for rid in recipients:
-        await notify(db, recipient_id=rid, type="admin_message", message=message)
+        await notify(
+            db,
+            recipient_id=rid,
+            type="admin_message",
+            title=body.title or "Message from your admin",
+            body=body.message,
+        )
     await record_audit(db, actor_id=uuid.UUID(admin.id), action="send_notification",
                        details=f"{body.audience}: {len(recipients)} recipient(s)")
     await db.commit()

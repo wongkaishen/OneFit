@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
 import { listAnnouncements, createAnnouncement } from "@/lib/api/admin";
 import { relativeTime } from "@/lib/format";
@@ -45,6 +46,10 @@ export default function AnnouncementsPage() {
       <TopBar title="Announcements" search="Search" avatarLetter="S" />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
+          <PageIntro>
+            Publish platform-wide announcements. Each one is delivered as a notification to its
+            target audience the moment you send it.
+          </PageIntro>
           <div className="mb-8 border border-border bg-white p-6">
             <Label>New announcement</Label>
             <input placeholder="Title" value={form.title}

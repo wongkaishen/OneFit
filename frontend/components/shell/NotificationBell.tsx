@@ -2,9 +2,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
-import { listNotifications, markNotificationRead } from "@/lib/api/notifications";
+import {
+  listNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from "@/lib/api/notifications";
 import { relativeTime } from "@/lib/format";
 import type { NotificationOut } from "@/lib/api/types";
+
+/** Headline for a notification, preferring the structured title. */
+const titleOf = (n: NotificationOut) => n.title ?? (n.message ?? "").split("\n")[0];
 
 /** Map the current route to its role section so the bell links to the right notifications page. */
 function notificationsHref(pathname: string | null): string {
@@ -43,8 +50,22 @@ export function NotificationBell() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 30_000); // light polling; no websocket layer yet
-    return () => clearInterval(id);
+    // Light polling (no websocket layer yet), but only while the tab is visible —
+    // background tabs don't fetch — and refresh immediately on focus/visibility
+    // regain so a returning user sees current state without waiting for the tick.
+    const id = setInterval(() => {
+      if (!document.hidden) load();
+    }, 30_000);
+    const onVisible = () => {
+      if (!document.hidden) load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [load]);
 
   const unread = items.filter((n) => n.status === "unread").length;
@@ -59,8 +80,12 @@ export function NotificationBell() {
   };
 
   const markAll = async () => {
-    const unreadIds = items.filter((n) => n.status === "unread").map((n) => n.notification_id);
-    for (const id of unreadIds) await markRead(id);
+    try {
+      await markAllNotificationsRead();
+      setItems((prev) => prev.map((n) => ({ ...n, status: "read" })));
+    } catch {
+      /* keep silent; rows stay unread */
+    }
   };
 
   return (
@@ -117,7 +142,7 @@ export function NotificationBell() {
                   <div className="font-sans text-[10px] uppercase tracking-label text-muted">
                     {n.type}
                   </div>
-                  <div className="line-clamp-3 whitespace-pre-line font-sans text-[13px] leading-snug text-charcoal">{n.message}</div>
+                  <div className="line-clamp-2 font-sans text-[13px] leading-snug text-charcoal">{titleOf(n)}</div>
                   <div className="mt-1 font-sans text-[11px] text-muted">
                     {relativeTime(n.sent_at)}
                   </div>

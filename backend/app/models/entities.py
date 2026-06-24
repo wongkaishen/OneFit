@@ -40,6 +40,7 @@ user_role_enum = _pg_enum("user_role", "gym_user", "wellness_specialist", "admin
 account_status_enum = _pg_enum("account_status", "pending", "active", "suspended")
 membership_status_enum = _pg_enum("membership_status", "active", "suspended")
 specialist_approval_enum = _pg_enum("specialist_approval", "pending", "approved", "rejected")
+specialist_client_status_enum = _pg_enum("specialist_client_status", "active", "removed")
 plan_status_enum = _pg_enum("plan_status", "active", "superseded")
 session_status_enum = _pg_enum("session_status", "scheduled", "completed", "missed")
 activity_source_enum = _pg_enum("activity_source", "manual", "wearable")
@@ -58,6 +59,7 @@ post_severity_enum = _pg_enum("post_severity", "low", "medium", "high")
 notification_status_enum = _pg_enum("notification_status", "read", "unread")
 announcement_audience_enum = _pg_enum("announcement_audience", "all", "gym_users", "specialists")
 announcement_status_enum = _pg_enum("announcement_status", "draft", "published")
+meal_plan_status_enum = _pg_enum("meal_plan_status", "draft", "published")
 
 
 # --- 3.2.1 User -> profiles -------------------------------------------------
@@ -323,6 +325,13 @@ class Notification(Base):
     )
     type: Mapped[str] = mapped_column(Text)
     message: Mapped[str] = mapped_column(Text)
+    # Structured content (0009): title/body split + a generic reference to the
+    # source entity so the detail view can render a full body and deep-link.
+    # `message` is kept and still populated for backward compatibility.
+    title: Mapped[str | None] = mapped_column(Text)
+    body: Mapped[str | None] = mapped_column(Text)
+    ref_type: Mapped[str | None] = mapped_column(Text)
+    ref_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     status: Mapped[str] = mapped_column(notification_status_enum, default="unread")
     sent_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
 
@@ -374,6 +383,28 @@ class MealPlan(Base):
     goal: Mapped[str] = mapped_column(Text, default="maintain")
     days_per_week: Mapped[int] = mapped_column(Integer, default=7)
     payload: Mapped[list | dict] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(meal_plan_status_enum, default="draft")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+
+
+# --- SpecialistClient relationship (0007 migration) -------------------------
+# The authoritative specialist <-> client link. A gym user is a specialist's
+# client only via an 'active' row here; all specialist roster/detail/action
+# queries scope to this relationship (replacing the old role == 'gym_user' match).
+class SpecialistClient(Base):
+    __tablename__ = "specialist_clients"
+
+    specialist_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("wellness_specialists.user_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    client_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("gym_users.user_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    status: Mapped[str] = mapped_column(specialist_client_status_enum, default="active")
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
 
 

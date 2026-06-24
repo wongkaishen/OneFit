@@ -3,6 +3,11 @@ export interface NotificationOut {
   recipient_id: string;
   type: string;
   message: string;
+  /** Structured content (nullable for legacy rows; fall back to `message`). */
+  title: string | null;
+  body: string | null;
+  ref_type: string | null;
+  ref_id: string | null;
   status: string;
   sent_at: string | null;
 }
@@ -124,9 +129,18 @@ export interface GymProgressIn {
 export interface GymMilestone {
   milestone_id: string;
   user_id: string;
-  title: string | null;
-  description: string | null;
+  type: string;
+  badge: string | null;
   achieved_at: string;
+}
+
+export interface GymFeedback {
+  feedback_id: string;
+  specialist_id: string;
+  specialist_name: string | null;
+  notes: string;
+  plan_updated: boolean;
+  submitted_at: string;
 }
 
 export interface GymDashboard {
@@ -163,32 +177,59 @@ export interface ClientSummary {
   last_active_at: string | null;
 }
 
+// Specialist views of a client's logs. These mirror the backend ORM exactly
+// (see GymActivityLog / GymDietLog / GymProgressEntry, which are the same shapes).
 export interface ActivityLog {
   log_id: string;
   user_id: string;
-  activity_type: string;
-  duration_minutes: number | null;
+  workout_type: string | null;
+  duration: number | null;
+  steps: number | null;
+  heart_rate: number | null;
   calories_burned: number | null;
-  intensity: string | null;
+  source: string;
+  status: string;
   log_date: string;
 }
 
 export interface DietaryLog {
   log_id: string;
   user_id: string;
-  meal_type: string | null;
+  meal_time: string | null;
   food_item: string | null;
   calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  entry_mode: string;
   log_date: string;
 }
 
 export interface ProgressEntry {
-  entry_id: string;
+  progress_id: string;
   user_id: string;
   weight: number | null;
   body_fat_percent: number | null;
+  height: number | null;
+  photo_url: string | null;
   recorded_at: string;
 }
+
+/** Shape the specialist's meal-plan builder writes into `payload`. */
+export interface MealPlanItem {
+  name: string;
+  kcal: number;
+}
+export interface MealPlanMeal {
+  meal: string;
+  items: MealPlanItem[];
+}
+export interface MealPlanDay {
+  day: string;
+  meals: MealPlanMeal[];
+}
+
+export type MealPlanStatus = "draft" | "published";
 
 export interface MealPlanOut {
   plan_id: string;
@@ -197,7 +238,8 @@ export interface MealPlanOut {
   name: string;
   goal: string;
   days_per_week: number;
-  payload: unknown;
+  payload: MealPlanDay[] | unknown;
+  status: MealPlanStatus;
   created_at: string;
 }
 
@@ -207,6 +249,16 @@ export interface MealPlanIn {
   days_per_week?: number;
   payload?: unknown;
   client_id?: string | null;
+  status?: MealPlanStatus;
+}
+
+export interface MealPlanUpdate {
+  name?: string;
+  goal?: string;
+  days_per_week?: number;
+  payload?: unknown;
+  client_id?: string | null;
+  status?: MealPlanStatus;
 }
 
 export interface ContentOut {

@@ -94,9 +94,11 @@ async def _provision_subtype(db: AsyncSession, user_id: str, role: RegisterRole)
 async def register(body: RegisterRequest, db: Annotated[AsyncSession, Depends(get_db)]):
     """Register a new Gym User or Wellness Specialist (UC1).
 
-    Accounts are created with status 'pending' (DB default) and must be approved
-    by an Admin (UC4) before they can use the app. Admins are seeded directly in
-    Supabase and cannot self-register. Returns the GoTrue signup result.
+    Accounts are active on sign-up (the handle_new_user trigger sets status
+    'active') and can use the app immediately once their email is confirmed;
+    role-based access still governs what each role sees. 'suspended' remains an
+    admin-moderation state. Admins are seeded directly in Supabase and cannot
+    self-register. Returns the GoTrue signup result.
     """
     result = await _gotrue(
         "/signup",

@@ -115,14 +115,14 @@ export default function ClientDetailPage() {
                           <div className="py-[14px]">
                             <div className="flex items-baseline justify-between">
                               <span className="font-sans text-[13px] text-charcoal">
-                                {a.activity_type ?? "Activity"}
+                                {a.workout_type ?? "Activity"}
                               </span>
                               <Label>{relativeTime(a.log_date)}</Label>
                             </div>
                             <div className="mt-[5px] font-sans text-[12px] text-muted">
-                              {[a.duration_minutes && `${a.duration_minutes} min`,
+                              {[a.duration && `${a.duration} min`,
                                 a.calories_burned && `${a.calories_burned} kcal`,
-                                a.intensity]
+                                a.steps && `${a.steps} steps`]
                                 .filter(Boolean)
                                 .join(" · ") || "—"}
                             </div>

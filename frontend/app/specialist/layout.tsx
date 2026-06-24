@@ -3,7 +3,7 @@ import { AuthGate } from "@/components/shell/AuthGate";
 
 const SPECIALIST_NAV: NavItem[] = [
   { label: "Clients", href: "/specialist/clients" },
-  { label: "Plans", href: "/specialist/plans/new" },
+  { label: "Plans", href: "/specialist/plans" },
   { label: "Content", href: "/specialist/content" },
   { label: "Announce", href: "/specialist/announce" },
   { label: "Notifications", href: "/specialist/notifications" },

@@ -6,10 +6,34 @@ import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
+import Link from "next/link";
 import { useResource } from "@/lib/api/useResource";
-import { listNotifications, markNotificationRead } from "@/lib/api/notifications";
+import {
+  listNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from "@/lib/api/notifications";
 import { relativeTime } from "@/lib/format";
 import type { NotificationOut } from "@/lib/api/types";
+
+/** Title/body for a notification, preferring structured fields and falling back
+ *  to the legacy single `message` ("title\n\nbody"). */
+function parts(n: NotificationOut): { title: string; body: string } {
+  if (n.title) return { title: n.title, body: (n.body ?? "").trim() };
+  const [first, ...rest] = (n.message ?? "").split("\n");
+  return { title: first, body: rest.join("\n").trim() };
+}
+
+/** Where a notification deep-links, if anywhere, and the link label. */
+function refLink(n: NotificationOut): { href: string; label: string } | null {
+  if (n.ref_type === "meal_plan" && n.ref_id)
+    return { href: `/gym/meal-plans?plan=${n.ref_id}`, label: "View meal plan →" };
+  if (n.ref_type === "feedback" && n.ref_id)
+    return { href: `/gym/feedback?id=${n.ref_id}`, label: "View feedback →" };
+  if (n.ref_type === "milestone")
+    return { href: `/gym/progress`, label: "View progress →" };
+  return null;
+}
 
 const FILTERS = ["All", "Unread", "Announcements"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -43,7 +67,12 @@ export function NotificationsPage({ avatarLetter = "?" }: { avatarLetter?: strin
   };
 
   const markAll = async () => {
-    for (const n of unread) await markRead(n.notification_id);
+    try {
+      await markAllNotificationsRead();
+      setData((prev) => (prev ?? []).map((n) => ({ ...n, status: "read" })));
+    } catch {
+      /* leave unread on failure */
+    }
   };
 
   // Open the full notification/announcement; mark it read on open.
@@ -52,9 +81,8 @@ export function NotificationsPage({ avatarLetter = "?" }: { avatarLetter?: strin
     if (n.status === "unread") void markRead(n.notification_id);
   };
 
-  // First line is the title (announcements are "title\n\nbody"); the rest is the body.
-  const [selTitle, ...selRest] = (selected?.message ?? "").split("\n");
-  const selBody = selRest.join("\n").trim();
+  const sel = selected ? parts(selected) : null;
+  const selLink = selected ? refLink(selected) : null;
 
   return (
     <>
@@ -104,7 +132,9 @@ export function NotificationsPage({ avatarLetter = "?" }: { avatarLetter?: strin
                   <div className="font-sans text-[10px] uppercase tracking-label text-muted">
                     {n.type}
                   </div>
-                  <div className="whitespace-pre-line font-sans text-[14px] leading-snug text-charcoal">{n.message}</div>
+                  <div className="truncate font-sans text-[14px] leading-snug text-charcoal">
+                    {parts(n).title}
+                  </div>
                 </div>
                 <Label>{relativeTime(n.sent_at)}</Label>
               </div>
@@ -137,12 +167,21 @@ export function NotificationsPage({ avatarLetter = "?" }: { avatarLetter?: strin
               </button>
             </div>
             <div className="mt-2 font-serif text-[22px] leading-tight text-charcoal">
-              {selTitle}
+              {sel?.title}
             </div>
-            {selBody && (
+            {sel?.body && (
               <div className="mt-4 whitespace-pre-line font-sans text-[14px] leading-relaxed text-subtle">
-                {selBody}
+                {sel.body}
               </div>
+            )}
+            {selLink && (
+              <Link
+                href={selLink.href}
+                onClick={() => setSelected(null)}
+                className="mt-5 inline-block font-sans text-[13px] font-semibold text-coral underline"
+              >
+                {selLink.label}
+              </Link>
             )}
             <div className="mt-6 font-sans text-[11px] text-muted">
               {relativeTime(selected.sent_at)}

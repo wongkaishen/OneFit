@@ -31,6 +31,7 @@ from app.models import (
     Milestone,
     Profile,
     ProgressEntry,
+    SpecialistClient,
     WellnessTask,
     WorkoutPlan,
     WorkoutSession,
@@ -46,6 +47,24 @@ DbDep = Annotated[AsyncSession, Depends(get_db)]
 
 def _now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
+
+
+async def _require_active_client(
+    db: AsyncSession, specialist_id: uuid.UUID, client_id: uuid.UUID
+) -> Profile:
+    """Authorize a specialist action against one of their own clients.
+
+    A gym user is only a client via an 'active' public.specialist_clients row.
+    Raises 404 (rather than 403) for any non-client so a specialist cannot probe
+    which users exist or belong to other specialists.
+    """
+    rel = await db.get(SpecialistClient, (specialist_id, client_id))
+    if rel is None or rel.status != "active":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    profile = await db.get(Profile, client_id)
+    if profile is None or profile.role != "gym_user":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    return profile
 
 
 # --- Schemas ----------------------------------------------------------------
@@ -77,6 +96,10 @@ class AnnounceIn(BaseModel):
     audience: str = "gym_users"  # "gym_users" | "all"
 
 
+class AddClientIn(BaseModel):
+    email: str
+
+
 class ClientSummary(BaseModel):
     user_id: uuid.UUID
     name: str | None = None
@@ -87,12 +110,25 @@ class ClientSummary(BaseModel):
     last_active_at: dt.datetime | None = None
 
 
+VALID_MEAL_PLAN_STATUS = {"draft", "published"}
+
+
 class MealPlanIn(BaseModel):
     name: str
     goal: str = "maintain"
     days_per_week: int = Field(default=7, ge=1, le=7)
     payload: list[Any] | dict = Field(default_factory=list)
     client_id: uuid.UUID | None = None
+    status: str = "draft"  # 'draft' | 'published'
+
+
+class MealPlanUpdate(BaseModel):
+    name: str | None = None
+    goal: str | None = None
+    days_per_week: int | None = Field(default=None, ge=1, le=7)
+    payload: list[Any] | dict | None = None
+    client_id: uuid.UUID | None = None
+    status: str | None = None  # 'draft' | 'published'
 
 
 class MealPlanOut(BaseModel):
@@ -105,6 +141,7 @@ class MealPlanOut(BaseModel):
     goal: str
     days_per_week: int
     payload: Any
+    status: str
     created_at: dt.datetime
 
 
@@ -169,16 +206,8 @@ async def update_content(content_id: uuid.UUID, body: ContentUpdate, user: Speci
 # --- UC4: Provide Professional Feedback -------------------------------------
 @router.post("/feedback", status_code=status.HTTP_201_CREATED)
 async def submit_feedback(body: FeedbackIn, user: SpecialistDep, db: DbDep):
-    # Feedback may only be directed at a current gym user (see create_meal_plan:
-    # a former gym user keeps a stale gym_users row, so check profiles.role).
-    client = await db.get(Profile, body.user_id)
-    if client is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
-    if client.role != "gym_user":
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Feedback can only be sent to gym users.",
-        )
+    # Feedback may only be directed at one of the specialist's own clients.
+    await _require_active_client(db, uuid.UUID(user.id), body.user_id)
     fb = Feedback(
         feedback_id=uuid.uuid4(),
         specialist_id=uuid.UUID(user.id),
@@ -188,9 +217,18 @@ async def submit_feedback(body: FeedbackIn, user: SpecialistDep, db: DbDep):
         submitted_at=_now(),
     )
     db.add(fb)
-    # SDD rule: submitting feedback notifies the gym user. (AI plan recalculation
-    # is deferred; in the MVP the specialist edits the plan manually.)
-    await notify(db, recipient_id=body.user_id, type="feedback", message="You have new feedback from your wellness specialist.")
+    # SDD rule: submitting feedback notifies the gym user. The full notes ride in
+    # the notification body so the gym user can read the feedback inline. (AI plan
+    # recalculation is deferred; in the MVP the specialist edits the plan manually.)
+    await notify(
+        db,
+        recipient_id=body.user_id,
+        type="feedback",
+        title="New feedback from your specialist",
+        body=body.notes,
+        ref_type="feedback",
+        ref_id=fb.feedback_id,
+    )
     await db.commit()
     await db.refresh(fb)
     return fb
@@ -211,9 +249,8 @@ async def announce(body: AnnounceIn, user: SpecialistDep, db: DbDep):
     if body.audience == "gym_users":
         stmt = stmt.where(Profile.role == "gym_user")
     recipients = (await db.execute(stmt)).scalars().all()
-    message = f"{body.title}\n\n{body.body}" if body.body.strip() else body.title
     for rid in recipients:
-        await notify(db, recipient_id=rid, type="announcement", message=message)
+        await notify(db, recipient_id=rid, type="announcement", title=body.title, body=body.body)
     await db.commit()
     return {"sent": len(recipients), "audience": body.audience}
 
@@ -257,24 +294,122 @@ async def _client_row(db: AsyncSession, profile: Profile) -> ClientSummary:
 
 @router.get("/clients", response_model=list[ClientSummary])
 async def list_clients(user: SpecialistDep, db: DbDep):
-    """MVP: specialist sees every gym user (no explicit assignment table yet)."""
-    result = await db.execute(
-        select(Profile).where(Profile.role == "gym_user").order_by(Profile.name)
+    """The specialist's roster: gym users they have an 'active' relationship with.
+
+    A new specialist starts empty. Built as a single query — profile +
+    fitness_profile joined, with last-activity timestamps as correlated
+    subqueries — to avoid the previous 4-queries-per-client N+1.
+    """
+    me = uuid.UUID(user.id)
+    last_activity = (
+        select(func.max(ActivityLog.log_date))
+        .where(ActivityLog.user_id == Profile.id)
+        .correlate(Profile)
+        .scalar_subquery()
     )
-    profiles = result.scalars().all()
-    return [await _client_row(db, p) for p in profiles]
+    last_diet = (
+        select(func.max(DietaryLog.log_date))
+        .where(DietaryLog.user_id == Profile.id)
+        .correlate(Profile)
+        .scalar_subquery()
+    )
+    last_progress = (
+        select(func.max(ProgressEntry.recorded_at))
+        .where(ProgressEntry.user_id == Profile.id)
+        .correlate(Profile)
+        .scalar_subquery()
+    )
+    rows = (
+        await db.execute(
+            select(Profile, FitnessProfile, last_activity, last_diet, last_progress)
+            .join(SpecialistClient, SpecialistClient.client_id == Profile.id)
+            .outerjoin(FitnessProfile, FitnessProfile.user_id == Profile.id)
+            .where(SpecialistClient.specialist_id == me, SpecialistClient.status == "active")
+            .order_by(Profile.name)
+        )
+    ).all()
+
+    summaries: list[ClientSummary] = []
+    for profile, fp, la, ld, lp in rows:
+        candidates: list[dt.datetime] = []
+        for d in (la, ld):
+            if d is not None:
+                candidates.append(dt.datetime.combine(d, dt.time.min, tzinfo=dt.timezone.utc))
+        if lp is not None:
+            candidates.append(lp)
+        summaries.append(
+            ClientSummary(
+                user_id=profile.id,
+                name=profile.name,
+                email=profile.email,
+                goal=fp.fitness_goal if fp else None,
+                weight=float(fp.weight) if fp and fp.weight is not None else None,
+                body_fat_percent=(
+                    float(fp.body_fat_percent) if fp and fp.body_fat_percent is not None else None
+                ),
+                last_active_at=max(candidates) if candidates else None,
+            )
+        )
+    return summaries
+
+
+@router.post("/clients", status_code=status.HTTP_201_CREATED, response_model=ClientSummary)
+async def add_client(body: AddClientIn, user: SpecialistDep, db: DbDep):
+    """Add a gym user to this specialist's roster by email (explicit assignment).
+
+    Re-adding a previously removed client reactivates the relationship.
+    """
+    me = uuid.UUID(user.id)
+    email = body.email.strip().lower()
+    if not email:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Email is required")
+    profile = (
+        await db.execute(select(Profile).where(func.lower(Profile.email) == email))
+    ).scalar_one_or_none()
+    if profile is None or profile.role != "gym_user":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No gym user with that email")
+    if await db.get(GymUser, profile.id) is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="User is not a gym member")
+
+    rel = await db.get(SpecialistClient, (me, profile.id))
+    if rel is None:
+        db.add(
+            SpecialistClient(specialist_id=me, client_id=profile.id, status="active", created_at=_now())
+        )
+    elif rel.status == "active":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already one of your clients")
+    else:
+        rel.status = "active"
+    await notify(
+        db,
+        recipient_id=profile.id,
+        type="account",
+        title="Added to a specialist's roster",
+        body=f"{user.name or 'A wellness specialist'} is now your wellness specialist on OneFit.",
+    )
+    await db.commit()
+    return await _client_row(db, profile)
+
+
+@router.delete("/clients/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_client(user_id: uuid.UUID, user: SpecialistDep, db: DbDep):
+    """Remove a client from the roster (soft-delete; revokes access to their data)."""
+    rel = await db.get(SpecialistClient, (uuid.UUID(user.id), user_id))
+    if rel is None or rel.status != "active":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    rel.status = "removed"
+    await db.commit()
 
 
 @router.get("/clients/{user_id}", response_model=ClientSummary)
 async def get_client(user_id: uuid.UUID, user: SpecialistDep, db: DbDep):
-    profile = await db.get(Profile, user_id)
-    if profile is None or profile.role != "gym_user":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    profile = await _require_active_client(db, uuid.UUID(user.id), user_id)
     return await _client_row(db, profile)
 
 
 @router.get("/clients/{user_id}/activity")
 async def client_activity(user_id: uuid.UUID, user: SpecialistDep, db: DbDep, limit: int = 20):
+    await _require_active_client(db, uuid.UUID(user.id), user_id)
     result = await db.execute(
         select(ActivityLog)
         .where(ActivityLog.user_id == user_id)
@@ -286,6 +421,7 @@ async def client_activity(user_id: uuid.UUID, user: SpecialistDep, db: DbDep, li
 
 @router.get("/clients/{user_id}/diet")
 async def client_diet(user_id: uuid.UUID, user: SpecialistDep, db: DbDep, limit: int = 20):
+    await _require_active_client(db, uuid.UUID(user.id), user_id)
     result = await db.execute(
         select(DietaryLog)
         .where(DietaryLog.user_id == user_id)
@@ -297,6 +433,7 @@ async def client_diet(user_id: uuid.UUID, user: SpecialistDep, db: DbDep, limit:
 
 @router.get("/clients/{user_id}/progress")
 async def client_progress(user_id: uuid.UUID, user: SpecialistDep, db: DbDep, limit: int = 20):
+    await _require_active_client(db, uuid.UUID(user.id), user_id)
     result = await db.execute(
         select(ProgressEntry)
         .where(ProgressEntry.user_id == user_id)
@@ -307,6 +444,30 @@ async def client_progress(user_id: uuid.UUID, user: SpecialistDep, db: DbDep, li
 
 
 # --- Meal plans (specialist-authored) ---------------------------------------
+async def _notify_plan_published(db: AsyncSession, plan: MealPlan) -> None:
+    """Tell a client their plan went live. Called on the draft -> published edge."""
+    await notify(
+        db,
+        recipient_id=plan.client_id,
+        type="meal_plan",
+        title=f"New meal plan: {plan.name}",
+        body=(
+            f"Your specialist published a {plan.days_per_week}-day plan focused on "
+            f"{plan.goal}. Open the Meal Plans tab to view the full plan."
+        ),
+        ref_type="meal_plan",
+        ref_id=plan.plan_id,
+    )
+
+
+def _require_owned_plan_status(value: str) -> None:
+    if value not in VALID_MEAL_PLAN_STATUS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"status must be one of {sorted(VALID_MEAL_PLAN_STATUS)}",
+        )
+
+
 @router.get("/meal-plans", response_model=list[MealPlanOut])
 async def list_meal_plans(user: SpecialistDep, db: DbDep):
     result = await db.execute(
@@ -319,40 +480,88 @@ async def list_meal_plans(user: SpecialistDep, db: DbDep):
 
 @router.post("/meal-plans", status_code=status.HTTP_201_CREATED, response_model=MealPlanOut)
 async def create_meal_plan(body: MealPlanIn, user: SpecialistDep, db: DbDep):
-    # A plan may target a specific client or be a reusable template (client_id None).
-    # If targeted, the recipient must currently be a gym user — a former gym user
-    # who was promoted to admin/specialist keeps a stale gym_users row, so we check
-    # the authoritative profiles.role rather than relying on the FK alone.
+    """Create a meal plan. Defaults to a draft; pass status='published' (with a
+    client) to author-and-publish in one step. A targeted plan/publish must go to
+    one of this specialist's own clients."""
+    me = uuid.UUID(user.id)
+    _require_owned_plan_status(body.status)
+    publish = body.status == "published"
+    if publish and body.client_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Select a client to publish the plan to.",
+        )
     if body.client_id is not None:
-        client = await db.get(Profile, body.client_id)
-        if client is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
-        if client.role != "gym_user":
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Meal plans can only be assigned to gym users.",
-            )
+        await _require_active_client(db, me, body.client_id)
+
     plan = MealPlan(
         plan_id=uuid.uuid4(),
-        specialist_id=uuid.UUID(user.id),
+        specialist_id=me,
         client_id=body.client_id,
         name=body.name,
         goal=body.goal,
         days_per_week=body.days_per_week,
         payload=body.payload,
+        status=body.status,
         created_at=_now(),
     )
     db.add(plan)
-    if body.client_id is not None:
-        await notify(
-            db,
-            recipient_id=body.client_id,
-            type="meal_plan",
-            message=f"Your specialist published a new meal plan: {body.name}",
-        )
+    if publish:
+        await _notify_plan_published(db, plan)
     await db.commit()
     await db.refresh(plan)
     return plan
+
+
+@router.patch("/meal-plans/{plan_id}", response_model=MealPlanOut)
+async def update_meal_plan(plan_id: uuid.UUID, body: MealPlanUpdate, user: SpecialistDep, db: DbDep):
+    """Edit a plan and/or transition draft -> published (owner only).
+
+    Editing an already-published plan updates it in place without re-notifying;
+    only the first draft -> published transition fires the client notification.
+    """
+    me = uuid.UUID(user.id)
+    plan = await db.get(MealPlan, plan_id)
+    if plan is None or plan.specialist_id != me:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal plan not found")
+
+    data = body.model_dump(exclude_unset=True)
+    if "status" in data and data["status"] is not None:
+        _require_owned_plan_status(data["status"])
+
+    # Resolve the effective target client + whether this edit publishes the plan,
+    # and validate BEFORE mutating so a bad publish leaves the row untouched.
+    target_client = data["client_id"] if "client_id" in data else plan.client_id
+    publish_now = data.get("status") == "published" and plan.status != "published"
+    if publish_now:
+        if target_client is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Select a client to publish the plan to.",
+            )
+        await _require_active_client(db, me, target_client)
+    elif "client_id" in data and target_client is not None:
+        await _require_active_client(db, me, target_client)
+
+    for field in ("name", "goal", "days_per_week", "payload", "client_id", "status"):
+        if field in data and data[field] is not None:
+            setattr(plan, field, data[field])
+
+    if publish_now:
+        await _notify_plan_published(db, plan)
+    await db.commit()
+    await db.refresh(plan)
+    return plan
+
+
+@router.delete("/meal-plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_meal_plan(plan_id: uuid.UUID, user: SpecialistDep, db: DbDep):
+    """Delete a meal plan (owner only). Works for drafts and published plans."""
+    plan = await db.get(MealPlan, plan_id)
+    if plan is None or plan.specialist_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal plan not found")
+    await db.delete(plan)
+    await db.commit()
 
 
 # --- UC2: Assign Customized Wellness Tasks ----------------------------------
@@ -420,7 +629,10 @@ async def assign_task(body: WellnessTaskIn, user: SpecialistDep, db: DbDep):
         db,
         recipient_id=body.target_id,
         type="task",
-        message=f"New wellness task assigned: {body.type} (due {body.due_date.isoformat()})",
+        title=f"New wellness task: {body.type}",
+        body=f"{body.description}\n\nDue {body.due_date.isoformat()}.",
+        ref_type="task",
+        ref_id=task.task_id,
     )
     await db.commit()
     await db.refresh(task)
@@ -487,7 +699,10 @@ async def moderate_post(post_id: uuid.UUID, body: ModerateIn, user: SpecialistDe
                 db,
                 recipient_id=aid,
                 type="moderation",
-                message=f"Post {post_id} escalated for review (severity {post.severity}).",
+                title="Post escalated for review",
+                body=f"Post {post_id} was escalated for admin review (severity {post.severity}).",
+                ref_type="community_post",
+                ref_id=post_id,
             )
         author_msg = "A post of yours has been escalated for admin review."
     elif action == "remove":
@@ -504,7 +719,15 @@ async def moderate_post(post_id: uuid.UUID, body: ModerateIn, user: SpecialistDe
             detail="action must be 'remove', 'warn', or 'escalate'",
         )
 
-    await notify(db, recipient_id=post.author_id, type="moderation", message=author_msg)
+    await notify(
+        db,
+        recipient_id=post.author_id,
+        type="moderation",
+        title="Moderation update",
+        body=author_msg,
+        ref_type="community_post",
+        ref_id=post_id,
+    )
     await record_audit(
         db,
         actor_id=uuid.UUID(user.id),

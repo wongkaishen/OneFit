@@ -7,6 +7,8 @@ const GYM_NAV: NavItem[] = [
   { label: "Activity", href: "/gym/activity" },
   { label: "Diet", href: "/gym/diet" },
   { label: "Progress", href: "/gym/progress" },
+  { label: "Meal Plans", href: "/gym/meal-plans" },
+  { label: "Feedback", href: "/gym/feedback" },
   { label: "Calendar", href: "/gym/calendar" },
   { label: "Notifications", href: "/gym/notifications" },
   { label: "Profile", href: "/gym/profile" },

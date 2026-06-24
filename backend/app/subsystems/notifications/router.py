@@ -8,7 +8,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -28,6 +28,18 @@ async def list_notifications(user: UserDep, db: DbDep, unread_only: bool = False
         stmt = stmt.where(Notification.status == "unread")
     result = await db.execute(stmt.order_by(Notification.sent_at.desc()))
     return result.scalars().all()
+
+
+@router.patch("/read-all")
+async def mark_all_read(user: UserDep, db: DbDep):
+    """Mark every unread notification for the caller as read in a single request."""
+    result = await db.execute(
+        update(Notification)
+        .where(Notification.recipient_id == uuid.UUID(user.id), Notification.status == "unread")
+        .values(status="read")
+    )
+    await db.commit()
+    return {"updated": result.rowcount}
 
 
 @router.patch("/{notification_id}/read")

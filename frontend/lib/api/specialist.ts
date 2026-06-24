@@ -1,11 +1,18 @@
 import { request } from "./client";
 import type {
   ActivityLog, ClientSummary, ContentIn, ContentOut, DietaryLog,
-  FeedbackIn, MealPlanIn, MealPlanOut, ProgressEntry,
+  FeedbackIn, MealPlanIn, MealPlanOut, MealPlanUpdate, ProgressEntry,
 } from "./types";
 
 export const listClients = () => request<ClientSummary[]>("/specialist/clients");
 export const getClient = (id: string) => request<ClientSummary>(`/specialist/clients/${id}`);
+export const addClient = (email: string) =>
+  request<ClientSummary>("/specialist/clients", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+export const removeClient = (id: string) =>
+  request<void>(`/specialist/clients/${id}`, { method: "DELETE" });
 export const clientActivity = (id: string) =>
   request<ActivityLog[]>(`/specialist/clients/${id}/activity`);
 export const clientDiet = (id: string) =>
@@ -16,6 +23,10 @@ export const clientProgress = (id: string) =>
 export const listMealPlans = () => request<MealPlanOut[]>("/specialist/meal-plans");
 export const createMealPlan = (body: MealPlanIn) =>
   request<MealPlanOut>("/specialist/meal-plans", { method: "POST", body: JSON.stringify(body) });
+export const updateMealPlan = (id: string, body: MealPlanUpdate) =>
+  request<MealPlanOut>(`/specialist/meal-plans/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const deleteMealPlan = (id: string) =>
+  request<void>(`/specialist/meal-plans/${id}`, { method: "DELETE" });
 
 export const listContent = () => request<ContentOut[]>("/specialist/content");
 export const createContent = (body: ContentIn) =>

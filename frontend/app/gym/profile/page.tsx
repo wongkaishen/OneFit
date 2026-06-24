@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { ApiError } from "@/lib/api/client";
 import { getProfile, updateProfile } from "@/lib/api/gym";
 import type { FitnessProfile } from "@/lib/api/types";
@@ -92,6 +93,10 @@ export default function GymProfilePage() {
       <TopBar title="Profile" search="Search" avatarLetter="G" />
       <main className="flex-1 overflow-auto">
         <div className="max-w-[560px] px-9 py-[30px]">
+          <PageIntro>
+            Keep your age, height, weight, and goal current so your dashboard, plans, and progress
+            stay accurate.
+          </PageIntro>
           <Label>Fitness profile</Label>
           {loading ? (
             <div className="mt-6"><Label>Loading…</Label></div>

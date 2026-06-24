@@ -111,6 +111,11 @@ async def get_current_user(
     if row is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No profile for this user")
 
+    # New accounts are active on sign-up (no admin-approval gate); 'suspended' is
+    # the only blocking state and it is enforced here, not just in the frontend.
+    if row["status"] == "suspended":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
+
     rid = str(row["id"])
     return CurrentUser(
         id=rid,

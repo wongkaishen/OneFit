@@ -4,6 +4,7 @@ import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { ApiError } from "@/lib/api/client";
 import { sendSpecialistAnnouncement } from "@/lib/api/specialist";
 
@@ -47,9 +48,10 @@ export default function SpecialistAnnouncePage() {
       <main className="flex-1 overflow-auto">
         <div className="max-w-[560px] px-9 py-[30px]">
           <Label>Broadcast to members</Label>
-          <p className="mt-1 font-sans text-[13px] text-muted">
-            Sends a notification to each recipient&apos;s inbox.
-          </p>
+          <PageIntro>
+            Send a one-off message to your members. Each recipient in the chosen audience gets it as
+            a notification in their inbox.
+          </PageIntro>
 
           <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
             <div className="flex flex-col gap-2">

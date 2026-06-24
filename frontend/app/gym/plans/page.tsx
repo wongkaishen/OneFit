@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Hairline } from "@/components/ui/Hairline";
+import { PageIntro } from "@/components/ui/PageIntro";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
 import { listPlans, createPlan, listMealPlans } from "@/lib/api/gym";
@@ -40,6 +42,10 @@ export default function GymPlansPage() {
       <TopBar title="Workout plans" search="Search" avatarLetter="G" />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
+          <PageIntro>
+            Create workout plans for your own goals and see the meal plan your specialist assigned.
+            Once you have a plan, schedule its sessions on the calendar.
+          </PageIntro>
           <Label>Meal plan from your specialist</Label>
           <div className="mt-3">
             {mealPlans.loading && <Label>Loading…</Label>}
@@ -77,7 +83,10 @@ export default function GymPlansPage() {
             {loading && <div className="py-6"><Label>Loading…</Label></div>}
             {error && <div className="py-6 text-[13px] text-coral">{error}</div>}
             {!loading && (data ?? []).length === 0 && (
-              <div className="py-6"><Label>No plans yet</Label></div>
+              <EmptyState title="No plans yet">
+                Create your first workout plan above with a goal like “Build strength, 3×/week”, then
+                schedule its sessions on the calendar.
+              </EmptyState>
             )}
             {(data ?? []).map((p) => (
               <div key={p.plan_id}>

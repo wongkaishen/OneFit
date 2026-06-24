@@ -7,3 +7,7 @@ export const listNotifications = (unreadOnly = false) =>
 
 export const markNotificationRead = (id: string) =>
   request<NotificationOut>(`/notifications/${id}/read`, { method: "PATCH" });
+
+// Bulk acknowledge — one request instead of N PATCHes.
+export const markAllNotificationsRead = () =>
+  request<{ updated: number }>("/notifications/read-all", { method: "PATCH" });

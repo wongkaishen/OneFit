@@ -2,6 +2,7 @@
 import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { BarChart } from "@/components/ui/BarChart";
 import { useResource } from "@/lib/api/useResource";
 import { listClients } from "@/lib/api/specialist";
@@ -28,6 +29,10 @@ export default function ReportsPage() {
       <TopBar title="Reports" search="Search" avatarLetter="J" />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
+          <PageIntro>
+            Aggregated, anonymized trends across your roster — use them to spot patterns and refine
+            your programs. No individual client is identified here.
+          </PageIntro>
           <Label>Roster health trends</Label>
 
           {loading && <div className="py-8"><Label>Loading…</Label></div>}

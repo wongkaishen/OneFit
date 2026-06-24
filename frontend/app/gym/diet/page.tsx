@@ -3,6 +3,7 @@ import { useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { ApiError } from "@/lib/api/client";
 import { logDiet, listMealPlans } from "@/lib/api/gym";
 import { useResource } from "@/lib/api/useResource";
@@ -78,6 +79,10 @@ export default function GymDietPage() {
       <TopBar title="Log diet" search="Search" avatarLetter="G" />
       <main className="flex-1 overflow-auto">
         <div className="max-w-[560px] px-9 py-[30px]">
+          <PageIntro>
+            Log what you eat and follow your assigned meal plan. Calories you log are subtracted from
+            your daily balance on the dashboard.
+          </PageIntro>
           <Label>Your meal plan</Label>
           <div className="mt-3">
             {mealPlans.loading && <Label>Loading…</Label>}

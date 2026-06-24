@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Chip } from "@/components/ui/Chip";
 import { Badge } from "@/components/ui/Badge";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
 import { listUsers, setUserStatus } from "@/lib/api/admin";
 import { shortDate } from "@/lib/format";
@@ -85,6 +86,10 @@ export default function UserManagementPage() {
       <TopBar title="User management" search="Search users" avatarLetter="S" />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
+          <PageIntro>
+            Manage member accounts — change a user’s role, and suspend or reactivate access.
+            Suspended users are blocked from the app immediately.
+          </PageIntro>
           {pendingCount > 0 && (
             <div className="mb-4 flex items-center justify-between border border-border bg-white px-4 py-3">
               <span className="font-sans text-[13px] text-charcoal">

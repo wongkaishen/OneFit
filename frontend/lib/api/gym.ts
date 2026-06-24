@@ -4,6 +4,7 @@ import type {
   GymActivityIn, GymActivityLog,
   GymDashboard,
   GymDietIn, GymDietLog,
+  GymFeedback,
   GymMilestone,
   GymProgressEntry, GymProgressIn,
   MealPlanOut,
@@ -41,6 +42,9 @@ export const listMilestones = () => request<GymMilestone[]>("/gym/milestones");
 
 // Meal plans published to me by a wellness specialist
 export const listMealPlans = () => request<MealPlanOut[]>("/gym/meal-plans");
+
+// Feedback addressed to me by a wellness specialist
+export const listFeedback = () => request<GymFeedback[]>("/gym/feedback");
 
 // Scheduled sessions
 export const listSessions = () => request<WorkoutSession[]>("/gym/sessions");

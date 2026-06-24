@@ -17,12 +17,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import CurrentUser, require_gym_user
+from app.services.milestones import check_and_award
 from app.models import (
     ActivityLog,
     DietaryLog,
+    Feedback,
     FitnessProfile,
     MealPlan,
     Milestone,
+    Profile,
     ProgressEntry,
     WorkoutPlan,
     WorkoutSession,
@@ -86,6 +89,15 @@ class SessionIn(BaseModel):
     reminder_set: bool = True
 
 
+class FeedbackOut(BaseModel):
+    feedback_id: uuid.UUID
+    specialist_id: uuid.UUID
+    specialist_name: str | None = None
+    notes: str
+    plan_updated: bool
+    submitted_at: dt.datetime
+
+
 # --- UC4: Manage Profile ----------------------------------------------------
 @router.get("/profile")
 async def get_profile(user: GymUserDep, db: DbDep):
@@ -145,6 +157,8 @@ async def log_activity(body: ActivityLogIn, user: GymUserDep, db: DbDep):
         **body.model_dump(),
     )
     db.add(log)
+    # Award any milestones this log just unlocked (same transaction).
+    await check_and_award(db, uuid.UUID(user.id))
     await db.commit()
     await db.refresh(log)
     return log
@@ -155,6 +169,7 @@ async def log_activity(body: ActivityLogIn, user: GymUserDep, db: DbDep):
 async def log_diet(body: DietaryLogIn, user: GymUserDep, db: DbDep):
     log = DietaryLog(log_id=uuid.uuid4(), user_id=uuid.UUID(user.id), **body.model_dump())
     db.add(log)
+    await check_and_award(db, uuid.UUID(user.id))
     await db.commit()
     await db.refresh(log)
     return log
@@ -206,6 +221,7 @@ async def add_progress(body: ProgressEntryIn, user: GymUserDep, db: DbDep):
         **body.model_dump(),
     )
     db.add(entry)
+    await check_and_award(db, uuid.UUID(user.id))
     await db.commit()
     await db.refresh(entry)
     # AI-driven plan-recalculation prompt on a significant change is deferred.
@@ -222,6 +238,35 @@ async def list_meal_plans(user: GymUserDep, db: DbDep):
         .order_by(MealPlan.created_at.desc())
     )
     return result.scalars().all()
+
+
+# --- Feedback received from a wellness specialist ---------------------------
+@router.get("/feedback", response_model=list[FeedbackOut])
+async def list_feedback(user: GymUserDep, db: DbDep):
+    """Professional feedback addressed to this gym user (UC4), newest first.
+
+    The specialist's display name is joined from profiles so the gym user sees
+    who the feedback is from, not just the raw notes that also arrive by notification.
+    """
+    rows = (
+        await db.execute(
+            select(Feedback, Profile.name)
+            .join(Profile, Profile.id == Feedback.specialist_id)
+            .where(Feedback.user_id == uuid.UUID(user.id))
+            .order_by(Feedback.submitted_at.desc())
+        )
+    ).all()
+    return [
+        FeedbackOut(
+            feedback_id=fb.feedback_id,
+            specialist_id=fb.specialist_id,
+            specialist_name=name,
+            notes=fb.notes,
+            plan_updated=fb.plan_updated,
+            submitted_at=fb.submitted_at,
+        )
+        for fb, name in rows
+    ]
 
 
 @router.get("/milestones")

@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ActivityLog, DietaryLog, Milestone, ProgressEntry
+from app.services.notification import notify
 
 
 async def _has_badge(db: AsyncSession, user_id: uuid.UUID, type_: str) -> bool:
@@ -85,5 +86,17 @@ async def check_and_award(db: AsyncSession, user_id: uuid.UUID) -> list[Mileston
             latest = float(weights[-1][0])
             if first - latest >= 5:
                 awarded.append(_add(db, user_id, "5kg-down", "5kg Lost"))
+
+    # Celebrate each newly earned badge in the same transaction as the award.
+    for m in awarded:
+        await notify(
+            db,
+            recipient_id=user_id,
+            type="milestone",
+            title="New milestone unlocked",
+            body=f"You earned the “{m.badge}” badge. Keep it up!",
+            ref_type="milestone",
+            ref_id=m.milestone_id,
+        )
 
     return awarded

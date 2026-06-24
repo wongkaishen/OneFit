@@ -2,6 +2,7 @@
 import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
 import { getStats, getAuditLog } from "@/lib/api/admin";
 import { relativeTime } from "@/lib/format";
@@ -27,6 +28,10 @@ export default function AdminDashboardPage() {
       <TopBar title="Dashboard" search="Search" avatarLetter="S" />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
+          <PageIntro>
+            Platform health at a glance — user totals, pending approvals, and a live feed of recent
+            administrative activity.
+          </PageIntro>
           <Label>System overview · live</Label>
 
           {stats.error && <div className="mt-4 text-[13px] text-coral">{stats.error}</div>}

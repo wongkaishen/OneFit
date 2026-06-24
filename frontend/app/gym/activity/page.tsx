@@ -3,6 +3,7 @@ import { useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { ApiError } from "@/lib/api/client";
 import { logActivity } from "@/lib/api/gym";
 
@@ -66,6 +67,10 @@ export default function GymActivityPage() {
       <TopBar title="Log activity" search="Search" avatarLetter="G" />
       <main className="flex-1 overflow-auto">
         <div className="max-w-[560px] px-9 py-[30px]">
+          <PageIntro>
+            Log your workouts, steps, and heart rate. Calories burned here offset your daily balance
+            on the dashboard.
+          </PageIntro>
           <Label>Daily activity</Label>
           <form onSubmit={submit} className="mt-5 flex flex-col gap-5">
             {field("Workout type", workoutType, setWorkoutType, "text", "e.g. Running")}

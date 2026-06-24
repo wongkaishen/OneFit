@@ -4,6 +4,7 @@ import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Badge } from "@/components/ui/Badge";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
 import { getDashboard, listPlans, listSessions } from "@/lib/api/gym";
 import type { GymDashboard, WorkoutPlan, WorkoutSession } from "@/lib/api/types";
@@ -59,6 +60,10 @@ export default function GymDashboardPage() {
       <TopBar title="Dashboard" search="Search" avatarLetter="G" />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
+          <PageIntro>
+            Your day at a glance — today’s calories in vs out, your active plan and next session,
+            plus quick links to log activity, diet, and progress.
+          </PageIntro>
           <Label>Today · calorie balance</Label>
 
           {dash.error && <div className="mt-4 text-[13px] text-coral">{dash.error}</div>}

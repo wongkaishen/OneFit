@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/Label";
 import { Chip } from "@/components/ui/Chip";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
 import { listContent, createContent, updateContent } from "@/lib/api/specialist";
 import type { ContentOut } from "@/lib/api/types";
@@ -110,6 +111,10 @@ export default function ContentPage() {
       <TopBar title="Content" search="Search content" avatarLetter="J" />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
+          <PageIntro>
+            Write educational articles for your members. New content starts as a draft and stays
+            private until you publish it — you must confirm you hold the rights before saving.
+          </PageIntro>
           <div className="mb-[22px] flex items-center justify-between">
             <div className="flex gap-[10px]">
               {FILTERS.map((f) => (

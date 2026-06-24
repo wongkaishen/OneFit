@@ -9,9 +9,11 @@ import { Chip } from "@/components/ui/Chip";
 import { Badge } from "@/components/ui/Badge";
 import { Progress } from "@/components/ui/Progress";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { useSession } from "@/lib/auth/session";
-import { listClients } from "@/lib/api/specialist";
+import { listClients, addClient, removeClient } from "@/lib/api/specialist";
+import { ApiError } from "@/lib/api/client";
 import { relativeTime } from "@/lib/format";
 import type { ClientSummary } from "@/lib/api/types";
 
@@ -35,7 +37,43 @@ export default function ClientListPage() {
   const router = useRouter();
   const [filter, setFilter] = useState("All clients");
   const { user } = useSession();
-  const { data, error, loading } = useResource<ClientSummary[]>(listClients, []);
+  const { data, error, loading, setData } = useResource<ClientSummary[]>(listClients, []);
+
+  const [adding, setAdding] = useState(false);
+  const [email, setEmail] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+  const [addErr, setAddErr] = useState<string | null>(null);
+
+  const submitAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddErr(null);
+    setAddBusy(true);
+    try {
+      const client = await addClient(email.trim());
+      setData((prev) =>
+        [...(prev ?? []).filter((c) => c.user_id !== client.user_id), client].sort((a, b) =>
+          (a.name ?? a.email).localeCompare(b.name ?? b.email),
+        ),
+      );
+      setEmail("");
+      setAdding(false);
+    } catch (err) {
+      setAddErr(err instanceof ApiError ? err.message : "Failed to add client");
+    } finally {
+      setAddBusy(false);
+    }
+  };
+
+  const remove = async (e: React.MouseEvent, c: ClientSummary) => {
+    e.stopPropagation();
+    if (!window.confirm(`Remove ${c.name ?? c.email} from your roster?`)) return;
+    try {
+      await removeClient(c.user_id);
+      setData((prev) => (prev ?? []).filter((x) => x.user_id !== c.user_id));
+    } catch (err) {
+      setAddErr(err instanceof ApiError ? err.message : "Failed to remove client");
+    }
+  };
 
   const displayName = user?.name ?? user?.email ?? null;
   const firstName = displayName?.split(/[\s@]/)[0] ?? null;
@@ -60,8 +98,30 @@ export default function ClientListPage() {
                 {firstName ? `Good to see you, ${firstName}.` : "Good to see you."}
               </div>
             </div>
-            <Button size="sm">+ Add client</Button>
+            <Button size="sm" onClick={() => { setAdding((v) => !v); setAddErr(null); }}>
+              {adding ? "Close" : "+ Add client"}
+            </Button>
           </div>
+
+          {adding && (
+            <form onSubmit={submitAdd} className="mb-[18px] flex items-center gap-3">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="client@email.com"
+                className="h-[38px] w-[280px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
+              />
+              <Button type="submit" size="sm" disabled={addBusy}>
+                {addBusy ? "Adding…" : "Add to roster"}
+              </Button>
+              <span className="font-sans text-[12px] text-muted">
+                Adds an existing gym user by their account email.
+              </span>
+            </form>
+          )}
+          {addErr && <div className="mb-3 font-sans text-[13px] text-coral">{addErr}</div>}
 
           <div className="mb-[18px] flex gap-[10px]">
             {FILTERS.map((f) => (
@@ -82,7 +142,10 @@ export default function ClientListPage() {
           {loading && <div className="py-8"><Label>Loading…</Label></div>}
           {error && <div className="py-8 text-[13px] text-coral">{error}</div>}
           {!loading && !error && rows.length === 0 && (
-            <div className="py-8"><Label>No clients yet</Label></div>
+            <EmptyState title="No clients yet">
+              Add your first client by their account email with “+ Add client” above. They’ll be
+              notified and appear here.
+            </EmptyState>
           )}
 
           {rows.map(({ c, d }) => (
@@ -105,8 +168,15 @@ export default function ClientListPage() {
                   <Progress pct={d.pct} className="!w-[90px]" />
                   <span className="font-sans text-[13px] font-semibold text-charcoal">{d.pct}%</span>
                 </div>
-                <span>
+                <span className="flex items-center justify-between gap-3">
                   {d.alert ? <Badge tone="warn">{d.alert}</Badge> : <span className="text-[12px] text-border">—</span>}
+                  <button
+                    type="button"
+                    onClick={(e) => remove(e, c)}
+                    className="font-sans text-[12px] text-muted underline hover:text-coral"
+                  >
+                    Remove
+                  </button>
                 </span>
               </div>
               <Hairline />

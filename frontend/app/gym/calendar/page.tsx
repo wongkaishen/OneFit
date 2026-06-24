@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Hairline } from "@/components/ui/Hairline";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
 import { listSessions, scheduleSession, listPlans } from "@/lib/api/gym";
@@ -67,6 +68,10 @@ export default function GymCalendarPage() {
       <TopBar title="Calendar" search="Search" avatarLetter="G" />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
+          <PageIntro>
+            Schedule sessions from your workout plans and keep an eye on what’s coming up. Conflicting
+            time slots are blocked automatically.
+          </PageIntro>
           <Label>Schedule a workout</Label>
 
           {planOptions.length === 0 && !plans.loading && (
