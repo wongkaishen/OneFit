@@ -20,7 +20,7 @@ Desktop.ini
 *.swp
 *.swo
 *~
-
+/ignore
 # ---------- Environment & secrets ----------
 .env
 .env.*
