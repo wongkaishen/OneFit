@@ -73,6 +73,22 @@ async def _gotrue(path: str, payload: dict) -> dict:
     return resp.json()
 
 
+async def _record_login_event(
+    db: AsyncSession, *, email: str, user_id, success: bool, ip: str | None, user_agent: str | None
+) -> None:
+    """Best-effort login audit (C16). Never raises — auditing must not break auth."""
+    try:
+        db.add(LoginEvent(
+            event_id=uuidlib.uuid4(), email=email, user_id=user_id,
+            success=success, ip=ip, user_agent=user_agent,
+            created_at=dt.datetime.now(dt.timezone.utc),
+        ))
+        await db.commit()
+    except Exception:  # noqa: BLE001 - auditing is best-effort
+        await db.rollback()
+        logger.exception("Failed to record login event for %s", email)
+
+
 async def _provision_subtype(db: AsyncSession, user_id: str, role: RegisterRole) -> None:
     """Create the role-specific subtype row(s) for a freshly signed-up user.
 
@@ -150,18 +166,18 @@ async def login(body: LoginRequest, request: Request, db: Annotated[AsyncSession
     try:
         tokens = await _gotrue("/token?grant_type=password", {"email": body.email, "password": body.password})
     except HTTPException:
-        db.add(LoginEvent(event_id=uuidlib.uuid4(), email=body.email, user_id=None,
-                          success=False, ip=ip, user_agent=ua,
-                          created_at=dt.datetime.now(dt.timezone.utc)))
-        await db.commit()
-        raise
-    # success: resolve the profile id for the audit row
-    prof = (await db.execute(select(Profile.id).where(Profile.email == body.email))).scalar_one_or_none()
-    db.add(LoginEvent(event_id=uuidlib.uuid4(), email=body.email, user_id=prof,
-                      success=True, ip=ip, user_agent=ua,
-                      created_at=dt.datetime.now(dt.timezone.utc)))
-    await db.commit()
-    return tokens
+        # Audit the failure best-effort — must not replace the original auth error.
+        await _record_login_event(db, email=body.email, user_id=None,
+                                  success=False, ip=ip, user_agent=ua)
+        raise  # always re-raise the original GoTrue error
+    # success: resolve profile id best-effort (None is acceptable for the audit row)
+    try:
+        prof = (await db.execute(select(Profile.id).where(Profile.email == body.email))).scalar_one_or_none()
+    except Exception:  # noqa: BLE001
+        prof = None
+    await _record_login_event(db, email=body.email, user_id=prof,
+                              success=True, ip=ip, user_agent=ua)
+    return tokens  # always return tokens regardless of audit outcome
 
 
 @router.get("/me", response_model=CurrentUser)

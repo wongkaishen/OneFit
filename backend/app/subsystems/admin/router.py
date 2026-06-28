@@ -552,7 +552,12 @@ async def send_notification(body: NotifyIn, admin: AdminDep, db: DbDep):
 async def login_events(admin: AdminDep, db: DbDep, hours: int = 24, failures_only: bool = False):
     """Recent login attempts with a suspicious flag (>=5 failures/email/window) (C16)."""
     since = _now() - dt.timedelta(hours=hours)
-    stmt = select(LoginEvent).where(LoginEvent.created_at >= since).order_by(LoginEvent.created_at.desc())
+    stmt = (
+        select(LoginEvent)
+        .where(LoginEvent.created_at >= since)
+        .order_by(LoginEvent.created_at.desc())
+        .limit(500)  # cap at 500 rows so a brute-force can't materialize unbounded results
+    )
     if failures_only:
         stmt = stmt.where(LoginEvent.success.is_(False))
     rows = (await db.execute(stmt)).scalars().all()
