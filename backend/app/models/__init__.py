@@ -13,6 +13,7 @@ from app.models.entities import (
     FitnessProfile,
     GymUser,
     HealthTrendReport,
+    LoginEvent,
     MealPlan,
     Message,
     Milestone,
@@ -52,4 +53,5 @@ __all__ = [
     "Announcement",
     "HealthTrendReport",
     "AuditLog",
+    "LoginEvent",
 ]

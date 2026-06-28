@@ -435,3 +435,16 @@ class Message(Base):
     body: Mapped[str] = mapped_column(Text)
     read_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+
+
+# --- Login attempt audit (C16; table from 0014_login_events.sql) ------------
+class LoginEvent(Base):
+    __tablename__ = "login_events"
+
+    event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    email: Mapped[str] = mapped_column(Text)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    success: Mapped[bool] = mapped_column(Boolean)
+    ip: Mapped[str | None] = mapped_column(Text)
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
