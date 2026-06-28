@@ -9,7 +9,7 @@ import { PageIntro } from "@/components/ui/PageIntro";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
-import { listPlans, createPlan, listMealPlans } from "@/lib/api/gym";
+import { listPlans, createPlan, listMealPlans, updatePlan, discardPlan } from "@/lib/api/gym";
 import { shortDate } from "@/lib/format";
 import { MealPlanCard } from "@/components/MealPlanCard";
 import type { WorkoutPlan, MealPlanOut } from "@/lib/api/types";
@@ -20,6 +20,30 @@ export default function GymPlansPage() {
   const [goal, setGoal] = useState("");
   const [busy, setBusy] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editGoal, setEditGoal] = useState("");
+
+  const saveEdit = async (id: string) => {
+    if (!editGoal.trim()) return;
+    try {
+      const updated = await updatePlan(id, { goal: editGoal.trim() });
+      setData((prev) => (prev ?? []).map((p) => (p.plan_id === id ? updated : p)));
+      setEditingId(null);
+    } catch (err) {
+      setFormErr(err instanceof ApiError ? err.message : "Failed to update plan");
+    }
+  };
+
+  const discard = async (id: string) => {
+    if (!confirm("Discard this plan? Its scheduled sessions will be removed.")) return;
+    try {
+      await discardPlan(id);
+      setData((prev) => (prev ?? []).filter((p) => p.plan_id !== id));
+    } catch (err) {
+      setFormErr(err instanceof ApiError ? err.message : "Failed to discard plan");
+    }
+  };
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,13 +115,34 @@ export default function GymPlansPage() {
             {(data ?? []).map((p) => (
               <div key={p.plan_id}>
                 <div className="flex items-center justify-between py-4">
-                  <div>
-                    <div className="font-sans text-[14px] text-charcoal">{p.goal}</div>
-                    <div className="mt-1 font-sans text-[11px] text-muted">
-                      Created {shortDate(p.created_at)} · via {p.generated_by}
+                  {editingId === p.plan_id ? (
+                    <input
+                      value={editGoal}
+                      onChange={(e) => setEditGoal(e.target.value)}
+                      className="h-[36px] flex-1 border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
+                    />
+                  ) : (
+                    <div>
+                      <div className="font-sans text-[14px] text-charcoal">{p.goal}</div>
+                      <div className="mt-1 font-sans text-[11px] text-muted">
+                        Created {shortDate(p.created_at)} · via {p.generated_by}
+                      </div>
                     </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Badge tone={p.status === "active" ? "good" : "neutral"}>{p.status}</Badge>
+                    {editingId === p.plan_id ? (
+                      <>
+                        <Button type="button" variant="dark" onClick={() => saveEdit(p.plan_id)}>Save</Button>
+                        <Button type="button" variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button type="button" variant="ghost" onClick={() => { setEditingId(p.plan_id); setEditGoal(p.goal); }}>Edit</Button>
+                        <Button type="button" variant="ghost" onClick={() => discard(p.plan_id)}>Discard</Button>
+                      </>
+                    )}
                   </div>
-                  <Badge tone={p.status === "active" ? "good" : "neutral"}>{p.status}</Badge>
                 </div>
                 <Hairline />
               </div>
