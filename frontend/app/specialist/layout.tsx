@@ -7,6 +7,7 @@ const SPECIALIST_NAV: NavItem[] = [
   { label: "Plans", href: "/specialist/plans" },
   { label: "Content", href: "/specialist/content" },
   { label: "Announce", href: "/specialist/announce" },
+  { label: "Community", href: "/specialist/community" },
   { label: "Notifications", href: "/specialist/notifications" },
   { label: "Reports", href: "/specialist/reports" },
 ];
