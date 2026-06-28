@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { ApiError } from "@/lib/api/client";
 import { logDiet, listMealPlans } from "@/lib/api/gym";
+import { searchNutrition } from "@/lib/api/ai";
 import { useResource } from "@/lib/api/useResource";
 import { MealPlanCard } from "@/components/MealPlanCard";
 import type { MealPlanOut } from "@/lib/api/types";
@@ -28,6 +29,23 @@ export default function GymDietPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+
+  const [foodQuery, setFoodQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchMsg, setSearchMsg] = useState<string | null>(null);
+
+  const lookup = async () => {
+    if (!foodQuery.trim()) return;
+    setSearchMsg(null); setSearching(true);
+    try {
+      const n = await searchNutrition(foodQuery.trim());
+      // pre-fill the existing diet form fields:
+      setFoodItem(n.food); setCalories(String(n.calories));
+      setProtein(String(n.protein_g)); setCarbs(String(n.carbs_g)); setFat(String(n.fat_g));
+    } catch (e) {
+      setSearchMsg(e instanceof ApiError && e.status === 501 ? "AI coming soon — add an OpenAI key." : "Lookup failed.");
+    } finally { setSearching(false); }
+  };
 
   const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
@@ -98,6 +116,15 @@ export default function GymDietPage() {
           </div>
 
           <Label>Dietary intake</Label>
+          <div className="mb-6 flex items-end gap-3">
+            <div className="flex flex-1 flex-col gap-2">
+              <Label>Search a food (AI)</Label>
+              <input value={foodQuery} onChange={(e) => setFoodQuery(e.target.value)} placeholder="e.g. 1 banana"
+                className="h-[42px] border border-border bg-white px-3 text-[14px] outline-none focus:border-charcoal" />
+            </div>
+            <Button type="button" variant="ghost" disabled={searching} onClick={lookup}>{searching ? "Searching…" : "Look up"}</Button>
+          </div>
+          {searchMsg && <div className="mb-2 text-[13px] text-coral">{searchMsg}</div>}
           <form onSubmit={submit} className="mt-5 flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <Label>Meal</Label>
