@@ -39,7 +39,13 @@ const FILTERS = ["All", "Unread", "Announcements"] as const;
 type Filter = (typeof FILTERS)[number];
 
 /** Full-page notifications list, shared across all role shells. */
-export function NotificationsPage({ avatarLetter = "?" }: { avatarLetter?: string }) {
+export function NotificationsPage({
+  avatarLetter = "?",
+  topSlot,
+}: {
+  avatarLetter?: string;
+  topSlot?: React.ReactNode;
+}) {
   const fetcher = useCallback(() => listNotifications(), []);
   const { data, error, loading, setData } = useResource<NotificationOut[]>(fetcher, []);
   const params = useSearchParams();
@@ -89,6 +95,7 @@ export function NotificationsPage({ avatarLetter = "?" }: { avatarLetter?: strin
       <TopBar title="Notifications" search="Search" avatarLetter={avatarLetter} />
       <main className="flex-1 overflow-auto">
         <div className="max-w-[720px] px-9 py-[30px]">
+          {topSlot}
           <div className="mb-[18px] flex items-center justify-between">
             <div className="flex gap-[10px]">
               {FILTERS.map((f) => (
