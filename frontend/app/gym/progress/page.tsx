@@ -35,7 +35,7 @@ export default function GymProgressPage() {
       const { photo_url } = await uploadProgressPhoto(file);
       setPhotoUrl(photo_url);
     } catch {
-      /* surface via existing error state if upload fails */
+      setError("Photo upload failed — please try again.");
     } finally {
       setUploading(false);
     }
