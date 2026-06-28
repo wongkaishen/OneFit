@@ -8,6 +8,7 @@ import { PageIntro } from "@/components/ui/PageIntro";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { listThreads, getThread, sendMessage } from "@/lib/api/messages";
+import { ApiError } from "@/lib/api/client";
 import type { Message, MessageThread } from "@/lib/api/types";
 
 export function Messaging({ avatarLetter }: { avatarLetter: string }) {
@@ -15,13 +16,21 @@ export function Messaging({ avatarLetter }: { avatarLetter: string }) {
   const [active, setActive] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Message[]>([]);
   const [text, setText] = useState("");
+  const [sendErr, setSendErr] = useState<string | null>(null);
 
   useEffect(() => { if (active) getThread(active).then(setMsgs).catch(() => setMsgs([])); }, [active]);
 
   const send = async () => {
     if (!active || !text.trim()) return;
-    const m = await sendMessage(active, text.trim());
-    setMsgs((prev) => [...prev, m]); setText("");
+    setSendErr(null);
+    try {
+      const m = await sendMessage(active, text.trim());
+      setMsgs((prev) => [...prev, m]);
+      setText("");
+      listThreads().then(threads.setData);
+    } catch (e) {
+      setSendErr(e instanceof ApiError ? e.message : "Couldn't send message.");
+    }
   };
 
   return (
@@ -31,6 +40,7 @@ export function Messaging({ avatarLetter }: { avatarLetter: string }) {
         <div className="flex h-full">
           <div className="w-72 border-r border-border">
             <div className="px-5 py-4"><Label>Conversations</Label></div>
+            {threads.error && <div className="px-5 py-3 text-[13px] text-coral">{threads.error}</div>}
             {threads.data != null && !threads.error && (threads.data ?? []).length === 0 && (
               <div className="px-5"><EmptyState title="No conversations yet." /></div>
             )}
@@ -55,6 +65,7 @@ export function Messaging({ avatarLetter }: { avatarLetter: string }) {
                   ))}
                 </div>
                 <Hairline />
+                {sendErr && <div className="px-4 pb-1 text-[13px] text-coral">{sendErr}</div>}
                 <div className="flex items-end gap-3 p-4">
                   <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type a message…"
                     onKeyDown={(e) => { if (e.key === "Enter") send(); }}

@@ -93,7 +93,14 @@ export default function ClientDetailPage() {
                 </div>
                 <Button type="button" variant="ghost" onClick={async () => {
                   const text = prompt("Message to client:");
-                  if (text) { await sendMessage(id, text); alert("Message sent."); }
+                  if (text) {
+                    try {
+                      await sendMessage(id, text);
+                      alert("Message sent.");
+                    } catch (e) {
+                      alert(e instanceof ApiError ? e.message : "Couldn't send message.");
+                    }
+                  }
                 }}>Message client</Button>
               </div>
 
