@@ -19,7 +19,7 @@ def test_openapi_lists_all_subsystems(client):
                      "/admin/users", "/ai/workout-plan", "/gym/plans/{plan_id}",
                      "/specialist/content/{content_id}",
                      "/admin/users/{user_id}/activity",
-                     "/gym/progress/photo"]:
+                     "/gym/progress/photo", "/gym/plans/ai-accept"]:
         assert expected in paths
 
 

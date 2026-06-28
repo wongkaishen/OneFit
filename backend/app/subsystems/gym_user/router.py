@@ -26,6 +26,7 @@ from app.services.notification import notify
 from app.models import (
     ActivityLog,
     DietaryLog,
+    Exercise,
     Feedback,
     FitnessProfile,
     MealPlan,
@@ -152,6 +153,48 @@ async def create_plan(body: WorkoutPlanIn, user: GymUserDep, db: DbDep):
         created_at=_now(),
     )
     db.add(plan)
+    await db.commit()
+    await db.refresh(plan)
+    return plan
+
+
+class AIExerciseIn(BaseModel):
+    name: str
+    sets: int | None = None
+    reps: int | None = None
+    rest_seconds: int | None = None
+    notes: str | None = None
+
+
+class AIPlanAcceptIn(BaseModel):
+    goal: str
+    exercises: list[AIExerciseIn] = []
+
+
+@router.post("/plans/ai-accept", status_code=status.HTTP_201_CREATED)
+async def accept_ai_plan(body: AIPlanAcceptIn, user: GymUserDep, db: DbDep):
+    """Persist an AI-generated plan the user accepted (A5), with its exercises."""
+    plan = WorkoutPlan(
+        plan_id=uuid.uuid4(),
+        user_id=uuid.UUID(user.id),
+        goal=body.goal,
+        generated_by="openai",
+        status="active",
+        created_at=_now(),
+    )
+    db.add(plan)
+    for i, ex in enumerate(body.exercises):
+        db.add(Exercise(
+            exercise_id=uuid.uuid4(),
+            plan_id=plan.plan_id,
+            name=ex.name,
+            sets=ex.sets,
+            reps=ex.reps,
+            rest_seconds=ex.rest_seconds,
+            order_index=i,
+            notes=ex.notes,
+            created_at=_now(),
+        ))
     await db.commit()
     await db.refresh(plan)
     return plan
