@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import CurrentUser, require_gym_user
 from app.services.milestones import check_and_award
+from app.services.calories import estimate_calories_burned
 from app.models import (
     ActivityLog,
     DietaryLog,
@@ -150,11 +151,20 @@ async def create_plan(body: WorkoutPlanIn, user: GymUserDep, db: DbDep):
 # --- UC5: Log Daily Activity ------------------------------------------------
 @router.post("/activity", status_code=status.HTTP_201_CREATED)
 async def log_activity(body: ActivityLogIn, user: GymUserDep, db: DbDep):
+    data = body.model_dump()
+    # A13: if the user didn't enter calories burned, estimate from type + duration.
+    if data.get("calories_burned") is None:
+        profile = await db.get(FitnessProfile, uuid.UUID(user.id))
+        data["calories_burned"] = estimate_calories_burned(
+            data.get("workout_type"),
+            data.get("duration"),
+            float(profile.weight) if profile and profile.weight else None,
+        )
     log = ActivityLog(
         log_id=uuid.uuid4(),
         user_id=uuid.UUID(user.id),
         status="completed",
-        **body.model_dump(),
+        **data,
     )
     db.add(log)
     # Award any milestones this log just unlocked (same transaction).
