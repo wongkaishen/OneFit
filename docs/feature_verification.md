@@ -19,15 +19,15 @@ Evidence paths are relative to repo root.
 | 3 | Manage Profile | ✅ | `GET/PUT /gym/profile`, `app/gym/profile/page.tsx`. |
 | 4 | Create Personalized Workout Plan (AI) | 🟡 | Manual plan create only (`POST /gym/plans`, `app/gym/plans`). The **AI generation** is ⚙️ `POST /ai/workout-plan` returns 501. |
 | 5 | Accept Workout Plan | 🟡 | Saving a manual plan = accept. No accept/reject flow over an AI-proposed plan (AI deferred). |
-| 6 | Edit Workout Plan | ❌ | No `PUT/PATCH /gym/plans/{id}`. Plans can be created but not edited. |
-| 7 | Discard Workout Plan | ❌ | No `DELETE /gym/plans/{id}`. No discard endpoint or UI. |
+| 6 | Edit Workout Plan | ✅ | `PATCH /gym/plans/{id}`, plans page edit UI (`app/gym/plans/page.tsx`). |
+| 7 | Discard Workout Plan | ✅ | `DELETE /gym/plans/{id}`, plans page discard action (`app/gym/plans/page.tsx`). |
 | 8 | Request AI Review for Edited Plan | ⚙️ | AI subsystem deferred (501). |
 | 9 | Log Daily Activity | ✅ | `POST /gym/activity`, `app/gym/activity/page.tsx`. |
 | 10 | Manual Workout Entry | ✅ | Activity log fields (type/duration/etc.) in the same flow. |
 | 11 | Wearable Device Sync | ❌ | Not implemented anywhere. |
 | 12 | Offline Activity Logging | ❌ | Not implemented — the PWA layer was removed in the `app/` rebuild. |
-| 13 | Calculate Calories Burned | 🟡 | `calories_burned` is stored and summed on the dashboard, but it is **entered manually**; there is no estimation engine. |
-| 14 | Weekly Consistency Metrics | ❌ | No weekly/consistency/streak computation in the dashboard endpoint or UI. |
+| 13 | Calculate Calories Burned | ✅ | `services/calories.py` estimator wired into `POST /gym/activity`; MET-based auto-estimation on log submit. |
+| 14 | Weekly Consistency Metrics | ✅ | `services/metrics.py` + dashboard endpoint fields (`active_days_this_week`, `current_streak`, `weekly_goal`) rendered in `app/gym/dashboard/page.tsx`. |
 | 15 | Add Calories per Day (quick) | ✅ | `POST /gym/diet` accepts calories-only (macros optional). |
 | 16 | Log Dietary Intake | ✅ | `POST /gym/diet`, `app/gym/diet/page.tsx`. |
 | 17 | Quick Add Calories | ✅ | Same flow as #15 (calories-only path). |
@@ -38,14 +38,14 @@ Evidence paths are relative to repo root.
 | 22 | View Recommended Meal Plan | ✅ | `GET /gym/meal-plans`, `app/gym/meal-plans/page.tsx` (specialist-published plans). |
 | 23 | Update Progress | ✅ | `POST /gym/progress`, `app/gym/progress/page.tsx`. |
 | 24 | Progress Photo Upload | 🟡 | `progress_entries.photo_url` column exists, but there is **no upload UI and no Storage wiring**; only weight/body-fat are captured. |
-| 25 | Progress Trend Graphs | 🟡 | A text trend summary is built; **no visual chart** on the progress page (a `BarChart` primitive exists but is not used here). |
+| 25 | Progress Trend Graphs | ✅ | `BarChart` component wired onto `app/gym/progress/page.tsx` rendering weight/body-fat trend over last entries. |
 | 26 | AI Recalculate Workout/Diet Targets | ⚙️ | AI deferred (501). |
 | 27 | Achievement Badge / Milestone | ✅ | `services/milestones.py`, `GET /gym/milestones`, rendered on progress page. |
 | 28 | Share Progress | 🟡 | Native share-sheet/clipboard fallback only. **No OneFit Community / Instagram / WhatsApp** integration. |
 | 29 | Generate Share Graphic | ❌ | Shares plain text; no formatted graphic with logo. |
 | 30 | Schedule Workout / Calendar | ✅ | `GET/POST /gym/sessions`, `app/gym/calendar/page.tsx`. |
-| 31 | Workout Conflict Detection | 🟡 | Backend rejects a clashing slot with **409**, but does **not suggest an alternative slot**. |
-| 32 | Workout Reminder | ❌ | No reminder notification is created when a session is scheduled. |
+| 31 | Workout Conflict Detection | ✅ | 409 response names the next free slot via `services/scheduling.py` `suggest_alternative_slot`. |
+| 32 | Workout Reminder | ✅ | Reminder notification created on session create (`POST /gym/sessions`) via `services/notification.py`. |
 | 33 | Receive Notification | ✅ | `notifications` subsystem + `NotificationsPage`. |
 | 34 | Notification Centre / Read Status | ✅ | `PATCH /notifications/{id}/read`, `PATCH /notifications/read-all`. |
 | 35 | Receive Specialist Feedback | ✅ | `GET /gym/feedback`; specialist `POST /specialist/feedback` notifies the user. |
@@ -139,18 +139,15 @@ Evidence paths are relative to repo root.
 ## Summary — what's missing or incomplete
 
 **Clearly missing (❌):**
-- Edit / Discard Workout Plan (no update/delete plan endpoints).
 - Wearable Device Sync, Offline Activity Logging.
-- Weekly Consistency Metrics.
-- Generate Share Graphic; Workout Reminder notifications.
+- Generate Share Graphic.
 - Specialist: Credential Upload, Consultation Support, Feedback Draft Auto-Save.
 - Admin: Two-Factor Authentication, Suspicious Login Monitoring.
 - Cloud Storage integration.
 
 **Partial (🟡) — backend exists but no UI, or feature is half-wired:**
 - Specialist Wellness Tasks, Community monitoring/moderation (backend only, no pages).
-- Progress Photo Upload & Progress Trend chart (schema/data present, UI missing).
-- Calories Burned (manual, not estimated); Conflict Detection (rejects but no suggestion).
+- Progress Photo Upload (schema/data present, no upload UI or Storage wiring).
 - Share Progress (no social targets); Admin "Notify of Program Updates" (no compose UI).
 - Pending Admin Approval gate (not fully enforced — accounts active on signup).
 
