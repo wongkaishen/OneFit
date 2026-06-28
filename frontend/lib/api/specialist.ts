@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, upload } from "./client";
 import type {
   ActivityLog, ClientSummary, ContentIn, ContentOut, DietaryLog,
   FeedbackIn, MealPlanIn, MealPlanOut, MealPlanUpdate, ProgressEntry,
@@ -86,3 +86,9 @@ export const sendSpecialistAnnouncement = (body: {
     method: "POST",
     body: JSON.stringify(body),
   });
+
+// File uploads
+export const uploadContentMedia = (file: File) =>
+  upload<{ media_url: string }>("/specialist/content/media", file);
+export const uploadCredential = (file: File) =>
+  upload<{ stored: boolean }>("/specialist/credentials", file);

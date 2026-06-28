@@ -38,3 +38,6 @@ export const sendNotification = (body: {
 
 export const getUserActivity = (id: string) =>
   request<AdminUserActivity>(`/admin/users/${id}/activity`);
+
+export const getSpecialistCredential = (id: string) =>
+  request<{ url: string }>(`/admin/specialists/${id}/credential`);

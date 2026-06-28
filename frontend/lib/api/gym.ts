@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, upload } from "./client";
 import type {
   FitnessProfile, FitnessProfileIn,
   GymActivityIn, GymActivityLog,
@@ -54,3 +54,7 @@ export const listFeedback = () => request<GymFeedback[]>("/gym/feedback");
 export const listSessions = () => request<WorkoutSession[]>("/gym/sessions");
 export const scheduleSession = (body: WorkoutSessionIn) =>
   request<WorkoutSession>("/gym/sessions", { method: "POST", body: JSON.stringify(body) });
+
+// Progress photo upload
+export const uploadProgressPhoto = (file: File) =>
+  upload<{ photo_url: string }>("/gym/progress/photo", file);
