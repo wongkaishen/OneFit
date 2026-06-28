@@ -15,9 +15,15 @@ export default function GymCommunityPage() {
   const params = useSearchParams();
   const [active, setActive] = useState<string | null>(null);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [postsError, setPostsError] = useState<string | null>(null);
   const [text, setText] = useState(params.get("share") ?? "");
 
-  useEffect(() => { if (active) gymListPosts(active).then(setPosts).catch(() => setPosts([])); }, [active]);
+  useEffect(() => {
+    if (active) {
+      setPostsError(null);
+      gymListPosts(active).then(setPosts).catch(() => setPostsError("Couldn't load posts."));
+    }
+  }, [active]);
 
   const post = async () => {
     if (!active || !text.trim()) return;
@@ -46,7 +52,10 @@ export default function GymCommunityPage() {
                 <Button type="button" variant="dark" onClick={post}>Post</Button>
               </div>
               <Hairline className="mt-4" />
-              {posts.length === 0 && !groups.error && (
+              {postsError && (
+                <div className="mt-4 text-[14px] text-coral">{postsError}</div>
+              )}
+              {posts.length === 0 && !postsError && (
                 <div className="mt-4"><Label>No posts yet. Be the first to share!</Label></div>
               )}
               {posts.map((p) => (

@@ -14,12 +14,14 @@ export default function SpecialistCommunityPage() {
   const groups = useResource<CommunityGroup[]>(listGroups, []);
   const [active, setActive] = useState<string | null>(null);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [postsError, setPostsError] = useState<string | null>(null);
   const [newGroup, setNewGroup] = useState("");
   const [newPost, setNewPost] = useState("");
 
   useEffect(() => {
     if (!active) return;
-    listGroupPosts(active).then(setPosts).catch(() => setPosts([]));
+    setPostsError(null);
+    listGroupPosts(active).then(setPosts).catch(() => setPostsError("Couldn't load posts."));
   }, [active]);
 
   const addGroup = async () => {
@@ -65,6 +67,9 @@ export default function SpecialistCommunityPage() {
                 <Button type="button" variant="dark" onClick={addPost}>Post</Button>
               </div>
               <Hairline className="mt-4" />
+              {postsError && (
+                <div className="mt-4 text-[14px] text-coral">{postsError}</div>
+              )}
               {posts.map((p) => (
                 <div key={p.post_id}>
                   <div className="flex items-center justify-between py-4">
