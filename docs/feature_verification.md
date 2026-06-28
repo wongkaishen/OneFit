@@ -41,8 +41,8 @@ Evidence paths are relative to repo root.
 | 25 | Progress Trend Graphs | ✅ | `BarChart` component wired onto `app/gym/progress/page.tsx` rendering weight trend over last entries. |
 | 26 | AI Recalculate Workout/Diet Targets | 🟡 | Endpoint `POST /ai/recalculate-targets` (key-gated) + `recalcTargets()` wrapper in `lib/api/ai.ts` exist, but **no UI control calls them** — no button or form in any gym page invokes `recalcTargets()`. |
 | 27 | Achievement Badge / Milestone | ✅ | `services/milestones.py`, `GET /gym/milestones`, rendered on progress page. |
-| 28 | Share Progress | 🟡 | Native share-sheet/clipboard fallback only. **No OneFit Community / Instagram / WhatsApp** integration. |
-| 29 | Generate Share Graphic | ❌ | Shares plain text; no formatted graphic with logo. |
+| 28 | Share Progress | ✅ | In-app community sharing: "Share to community" button on `/gym/progress` deep-links to `/gym/community?share=<text>` pre-filling the post box (`gymCreatePost`). Native share-sheet fallback retained. External social (Instagram/WhatsApp) is intentionally out of scope. |
+| 29 | Generate Share Graphic | ✅ | "Download graphic" button on `/gym/progress` calls `renderShareGraphic()` in `frontend/lib/shareGraphic.ts` which draws a branded 1080×1080 PNG on an offscreen `<canvas>` (cream bg, coral bar, OneFit wordmark, latest weight + trend labels) and triggers download. No backend or external service. |
 | 30 | Schedule Workout / Calendar | ✅ | `GET/POST /gym/sessions`, `app/gym/calendar/page.tsx`. |
 | 31 | Workout Conflict Detection | ✅ | 409 response names the next free slot via `services/scheduling.py` `suggest_alternative_slot`. |
 | 32 | Workout Reminder | ✅ | Reminder notification created on session create (`POST /gym/sessions`) via `services/notification.py`. |
@@ -72,9 +72,9 @@ Evidence paths are relative to repo root.
 | 14 | Provide Professional Feedback | ✅ | `POST /specialist/feedback`. |
 | 15 | Consultation Support | ❌ | No consultation/messaging feature. |
 | 16 | Feedback-Based Plan Recalculation | 🟡 | Endpoint `POST /ai/recalculate-targets` (key-gated) + `recalcTargets()` wrapper in `lib/api/ai.ts` exist, but **no UI control calls them** — no specialist page invokes `recalcTargets()`. |
-| 17 | Monitor Community Groups | 🟡 | Backend `GET /specialist/community/groups` + posts exist, **no frontend page**. |
-| 18 | Moderate Community Posts | 🟡 | Backend `POST /specialist/community/posts/{id}/moderate`, **no frontend page**. |
-| 19 | Post Community Updates | 🟡 | `app/specialist/announce` posts an **announcement**; no community-post create endpoint. |
+| 17 | Monitor Community Groups | ✅ | `GET /specialist/community/groups` + `GET .../groups/{id}/posts`; `app/specialist/community/page.tsx` lists all owned groups and their posts (B17). |
+| 18 | Moderate Community Posts | ✅ | `POST /specialist/community/posts/{id}/moderate` (remove/warn/escalate); moderation buttons wired in `app/specialist/community/page.tsx` (B18). |
+| 19 | Post Community Updates | ✅ | `POST /specialist/community/groups` (create group) + `POST .../groups/{id}/posts` (post update); both wired in `app/specialist/community/page.tsx` (B19). |
 | 20 | Review Health Trends to Improve Program | ✅ | `GET /specialist/health-trends`, reports page. |
 | 21 | Trend-Based Recommendation | ✅ | `POST /specialist/health-trends` returns `recommendation` string from `services/recommendations.py`; `app/specialist/reports/page.tsx` "Generate trend report" button shows recommendation in highlighted block. Tasks 3/14. |
 | 22 | Feedback Draft Auto-Save | ✅ | `app/specialist/clients/[id]/page.tsx` persists feedback text to `localStorage` keyed by `onefit-feedback-draft-{id}` on every keystroke; cleared on submit. Task 9. |
@@ -140,13 +140,11 @@ Evidence paths are relative to repo root.
 
 **Clearly missing (❌):**
 - Wearable Device Sync, Offline Activity Logging.
-- Generate Share Graphic.
 - Specialist: Consultation Support.
 - Admin: Two-Factor Authentication, Suspicious Login Monitoring.
 
 **Partial (🟡) — backend exists but no UI, or feature is half-wired:**
-- Specialist Community monitoring/moderation (backend only, no pages).
-- Share Progress (no social targets).
+- Share Progress: external social (Instagram/WhatsApp) intentionally out of scope; in-app community sharing ✅.
 - Supabase Auth OAuth providers not configured.
 
 **Deferred by design (⚙️) — return 501, frontend shows "AI coming soon":**
