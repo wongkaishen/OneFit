@@ -8,7 +8,7 @@ import { Hairline } from "@/components/ui/Hairline";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
-import { listProgress, addProgress, listMilestones } from "@/lib/api/gym";
+import { listProgress, addProgress, listMilestones, uploadProgressPhoto } from "@/lib/api/gym";
 import { relativeTime, shortDate } from "@/lib/format";
 import { BarChart } from "@/components/ui/BarChart";
 import type { GymProgressEntry, GymMilestone } from "@/lib/api/types";
@@ -19,20 +19,36 @@ export default function GymProgressPage() {
 
   const [weight, setWeight] = useState("");
   const [bodyFat, setBodyFat] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shared, setShared] = useState<string | null>(null);
 
   const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
+  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { photo_url } = await uploadProgressPhoto(file);
+      setPhotoUrl(photo_url);
+    } catch {
+      /* surface via existing error state if upload fails */
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setBusy(true);
     try {
-      const entry = await addProgress({ weight: num(weight), body_fat_percent: num(bodyFat) });
+      const entry = await addProgress({ weight: num(weight), body_fat_percent: num(bodyFat), photo_url: photoUrl ?? undefined });
       progress.setData((prev) => [entry, ...(prev ?? [])]);
-      setWeight(""); setBodyFat("");
+      setWeight(""); setBodyFat(""); setPhotoUrl(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save entry");
     } finally {
@@ -107,7 +123,7 @@ export default function GymProgressPage() {
             your progress. “Share latest” opens your device’s share sheet where supported.
           </PageIntro>
           <Label>Update progress</Label>
-          <form onSubmit={add} className="mt-4 flex items-end gap-3">
+          <form onSubmit={add} className="mt-4 flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-2">
               <Label>Weight (kg)</Label>
               <input
@@ -122,7 +138,13 @@ export default function GymProgressPage() {
                 className="h-[42px] w-[160px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
               />
             </div>
-            <Button type="submit" variant="dark" disabled={busy}>
+            <div className="flex flex-col gap-2">
+              <Label>Progress photo (optional)</Label>
+              <input type="file" accept="image/*" onChange={onPickPhoto} className="text-[13px]" />
+              {uploading && <Label>Uploading…</Label>}
+              {photoUrl && <img src={photoUrl} alt="progress" className="mt-2 h-24 w-24 object-cover" />}
+            </div>
+            <Button type="submit" variant="dark" disabled={busy || uploading}>
               {busy ? "Saving…" : "Add entry"}
             </Button>
             <Button type="button" variant="ghost" onClick={share}>Share latest</Button>
