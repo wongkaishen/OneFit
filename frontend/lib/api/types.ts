@@ -381,3 +381,12 @@ export interface CommunityPost {
   post_id: string; group_id: string; author_id: string; content: string;
   status: string; severity: string | null; created_at?: string;
 }
+
+export interface Message {
+  message_id: string; sender_id: string; recipient_id: string;
+  body: string; read_at: string | null; created_at: string;
+}
+export interface MessageThread {
+  partner_id: string; partner_name: string | null;
+  last_body: string; last_at: string; unread: number;
+}
