@@ -203,6 +203,16 @@ async def update_content(content_id: uuid.UUID, body: ContentUpdate, user: Speci
     return content
 
 
+@router.delete("/content/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_content(content_id: uuid.UUID, user: SpecialistDep, db: DbDep):
+    """Permanently remove a piece of educational content (B13). Owner only."""
+    content = await db.get(EducationalContent, content_id)
+    if content is None or content.specialist_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
+    await db.delete(content)
+    await db.commit()
+
+
 # --- UC4: Provide Professional Feedback -------------------------------------
 @router.post("/feedback", status_code=status.HTTP_201_CREATED)
 async def submit_feedback(body: FeedbackIn, user: SpecialistDep, db: DbDep):
