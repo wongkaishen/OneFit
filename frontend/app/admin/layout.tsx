@@ -8,6 +8,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: "Announcements", href: "/admin/announcements" },
   { label: "Notifications", href: "/admin/notifications" },
   { label: "Programs", href: "/admin/programs" },
+  { label: "Security", href: "/admin/security" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
