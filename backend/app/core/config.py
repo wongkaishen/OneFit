@@ -19,8 +19,17 @@ class Settings(BaseSettings):
     # Database (async SQLAlchemy / asyncpg)
     database_url: str
 
+    # OpenAI ("Codex") — AI features. When openai_api_key is unset, the /ai
+    # endpoints return 501 (preserving the "AI coming soon" contract).
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4o"
+
     # CORS
     cors_origins: str = "http://localhost:3000"
+
+    @property
+    def ai_enabled(self) -> bool:
+        return bool(self.openai_api_key and self.openai_api_key.strip())
 
     @property
     def cors_origin_list(self) -> list[str]:
