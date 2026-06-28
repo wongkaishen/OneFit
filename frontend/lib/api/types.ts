@@ -149,6 +149,9 @@ export interface GymDashboard {
   calories_burned: number;
   diet_entries: number;
   activity_entries: number;
+  active_days_this_week: number;
+  current_streak: number;
+  weekly_goal: number;
 }
 
 export interface WorkoutSession {
