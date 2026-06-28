@@ -38,7 +38,7 @@ Evidence paths are relative to repo root.
 | 22 | View Recommended Meal Plan | ✅ | `GET /gym/meal-plans`, `app/gym/meal-plans/page.tsx` (specialist-published plans). |
 | 23 | Update Progress | ✅ | `POST /gym/progress`, `app/gym/progress/page.tsx`. |
 | 24 | Progress Photo Upload | 🟡 | `progress_entries.photo_url` column exists, but there is **no upload UI and no Storage wiring**; only weight/body-fat are captured. |
-| 25 | Progress Trend Graphs | ✅ | `BarChart` component wired onto `app/gym/progress/page.tsx` rendering weight/body-fat trend over last entries. |
+| 25 | Progress Trend Graphs | ✅ | `BarChart` component wired onto `app/gym/progress/page.tsx` rendering weight trend over last entries. |
 | 26 | AI Recalculate Workout/Diet Targets | ⚙️ | AI deferred (501). |
 | 27 | Achievement Badge / Milestone | ✅ | `services/milestones.py`, `GET /gym/milestones`, rendered on progress page. |
 | 28 | Share Progress | 🟡 | Native share-sheet/clipboard fallback only. **No OneFit Community / Instagram / WhatsApp** integration. |

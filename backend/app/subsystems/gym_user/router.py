@@ -164,6 +164,8 @@ async def update_plan(plan_id: uuid.UUID, body: PlanUpdate, user: GymUserDep, db
     updates = body.model_dump(exclude_unset=True)
     if "status" in updates and updates["status"] not in ("active", "superseded"):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid status")
+    if "goal" in updates and updates["goal"] is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="goal cannot be null")
     for field, value in updates.items():
         setattr(plan, field, value)
     await db.commit()
