@@ -25,7 +25,7 @@ Evidence paths are relative to repo root.
 | 9 | Log Daily Activity | ✅ | `POST /gym/activity`, `app/gym/activity/page.tsx`. |
 | 10 | Manual Workout Entry | ✅ | Activity log fields (type/duration/etc.) in the same flow. |
 | 11 | Wearable Device Sync | ❌ | Not implemented anywhere. |
-| 12 | Offline Activity Logging | ❌ | Not implemented — the PWA layer was removed in the `app/` rebuild. |
+| 12 | Offline Activity Logging | ✅ | `lib/offlineQueue.ts` — queues failed/offline activity logs in `localStorage`; auto-flushes on `online` event. Activity page shows pending-sync banner + manual "Sync now" button. Service worker (next-pwa/Workbox) caches app shell for offline navigation. |
 | 13 | Calculate Calories Burned | ✅ | `services/calories.py` estimator wired into `POST /gym/activity`; MET-based auto-estimation on log submit. |
 | 14 | Weekly Consistency Metrics | ✅ | `services/metrics.py` + dashboard endpoint fields (`active_days_this_week`, `current_streak`, `weekly_goal`) rendered in `app/gym/dashboard/page.tsx`. |
 | 15 | Add Calories per Day (quick) | ✅ | `POST /gym/diet` accepts calories-only (macros optional). |
@@ -123,7 +123,7 @@ Evidence paths are relative to repo root.
 | 13 | Pose / Model Inference | ⚙️ | Deferred (mentioned in SDS only; out of scope for this project). |
 | 14 | Notification Service | ✅ | `services/notification.py`. |
 | 15 | Email Service | 🟡 | Email verification handled by Supabase; **no custom email flow** in app. |
-| 16 | Responsive Web Application | 🟡 | Tailwind + fixed-sidebar shell; not explicitly mobile-responsive (sidebar is fixed, not breakpoint-based). |
+| 16 | Responsive Web Application | 🟡 | Tailwind + fixed-sidebar shell; not explicitly mobile-responsive (sidebar is fixed, not breakpoint-based). **PWA installable:** `manifest.webmanifest` + coral icons + `@ducanh2912/next-pwa` service worker (prod-only). Full background-sync (Workbox BackgroundSync) approximated by the `online`-event flush in `offlineQueue.ts`. |
 | 17 | Password Hashing | ✅ | Delegated to Supabase Auth (bcrypt); app never stores raw passwords. |
 | 18 | HTTPS Secure Transmission | ➖ | Deployment/transport concern. |
 | 19 | Dashboard Performance (<3s) | ➖ | Non-functional requirement; not code-verifiable. |
