@@ -87,7 +87,7 @@ Evidence paths are relative to repo root.
 |---|---|---|---|
 | 1 | Admin Registration | 🟡 | By design admins are **seeded in Supabase** and cannot self-register (`_ensure_admin_row`). No registration UI. |
 | 2 | Admin Login | ✅ | Shared login + routing to `/admin/dashboard`. |
-| 3 | Admin Two-Factor Authentication | ❌ | No 2FA. |
+| 3 | Admin Two-Factor Authentication | ✅ | TOTP enroll (`POST /auth/mfa/enroll`) + verify (`POST /auth/mfa/verify`) via GoTrue MFA; `/admin/security` page with QR setup + code input. **Note:** AAL2 login enforcement (forcing MFA before access) is a Supabase Auth dashboard policy — enable "Require MFA for Admin" in the Supabase dashboard. Code delivers enrollment + verification. |
 | 4 | View All Users | ✅ | `GET /admin/users`, `app/admin/users/page.tsx`. |
 | 5 | Manage Users | ✅ | `PATCH /admin/users/{id}/status` and `/role`. |
 | 6 | Approve Member Registration | ✅ | `GET /admin/registrations`, `POST .../approve` and `.../reject`; `app/admin/registrations/page.tsx` approve/reject UI. Task 10. |
@@ -100,7 +100,7 @@ Evidence paths are relative to repo root.
 | 13 | Send Announcements to Members | ✅ | `GET/POST /admin/announcements`, `app/admin/announcements/page.tsx`. |
 | 14 | Notify Members of Program Updates | ✅ | `POST /admin/notifications` sends targeted notifications; `app/admin/notifications/page.tsx` compose + send UI. Tasks 6/12. |
 | 15 | Audit Log Tracking | ✅ | `audit_logs` table + `services/audit.py` + `GET /admin/audit-log`. |
-| 16 | Suspicious Login Monitoring | ❌ | Not implemented. |
+| 16 | Suspicious Login Monitoring | ✅ | `public.login_events` table (migration `0014_login_events.sql`); `POST /auth/login` records every attempt (IP + user-agent, success/failure); `GET /admin/login-events` returns events with `suspicious` flag (≥5 failures/email in window); rendered on `/admin/security`. |
 
 ---
 
@@ -109,7 +109,7 @@ Evidence paths are relative to repo root.
 | # | Feature | Status | Evidence / Notes |
 |---|---|---|---|
 | 1 | Role-Based Access Control | ✅ | `core/security.py` `require_role`, `components/shell/AuthGate.tsx`. |
-| 2 | Supabase Authentication | 🟡 | Email/password via GoTrue is wired; **OAuth providers not configured** in code. |
+| 2 | Supabase Authentication | ✅ | Email/password via GoTrue wired; Google OAuth button on `/login` redirects to GoTrue `/auth/v1/authorize?provider=google`; `/auth/callback` route handles token hash, stores it, and routes to `roleHome`. **Dashboard prerequisite:** enable Google provider in Supabase Auth dashboard + set `NEXT_PUBLIC_SUPABASE_URL` in `.env.local`. |
 | 3 | Supabase PostgreSQL Database | ✅ | Migrations `0001–0011`, async SQLAlchemy. |
 | 4 | Supabase Row-Level Security | ✅ | `0002_rls.sql`, `0010_meal_plans_rls.sql`. |
 | 5 | Cloud Storage | ✅ | Migration `0012_storage.sql` creates `onefit-public` + `onefit-credentials` buckets; `services/storage.py` (`upload_object`, `public_url`, `signed_url`); progress photo, content media, and specialist credential upload endpoints all wired. Tasks 2/3/4/5/6/8/9/10/11. |
