@@ -57,7 +57,7 @@ Evidence paths are relative to repo root.
 | # | Feature | Status | Evidence / Notes |
 |---|---|---|---|
 | 1 | Wellness Specialist Registration | ✅ | `POST /auth/register` with `role=wellness_specialist`; seeds `wellness_specialists` row. |
-| 2 | Credential Upload | ✅ | `POST /specialist/credential` (multipart) stores file in `onefit-credentials` bucket; upload control added to `app/specialist/content/page.tsx`. Tasks 8/11. |
+| 2 | Credential Upload | ✅ | `POST /specialist/credential` (multipart) stores file in `onefit-credentials` bucket; upload control added to `app/specialist/content/page.tsx`. Tasks 8/11. **Caveat:** the backend upload endpoint and admin signed-URL view are fully wired, but because newly-registered specialists are `pending` and blocked at login (B3 gate), the credential-upload UI (behind AuthGate on the content page) is unreachable until after admin approval — upload-before-approval is a known follow-up. |
 | 3 | Pending Admin Approval | ✅ | Task 5: new specialists' `profiles.status` is set to `pending` on signup (`_provision_subtype`). The login flow blocks `pending` accounts — `app/login/page.tsx` clears the token and shows "awaiting admin approval", so a pending specialist cannot enter the app. Admin approves via `GET /admin/registrations` + `POST .../approve` (→ `active`) or rejects via `.../reject` (→ `suspended`). Gate enforced at login. |
 | 4 | Wellness Specialist Login | ✅ | Shared login + role routing to `/specialist/clients`. |
 | 5 | View Assigned Gym Users | ✅ | `GET /specialist/clients`, `app/specialist/clients/page.tsx`. |

@@ -293,7 +293,7 @@ async def add_progress(body: ProgressEntryIn, user: GymUserDep, db: DbDep):
 
 
 @router.post("/progress/photo")
-async def upload_progress_photo(user: GymUserDep, db: DbDep, file: UploadFile = File(...)):
+async def upload_progress_photo(user: GymUserDep, file: UploadFile = File(...)):
     """Upload a progress photo to the public bucket; returns its URL (A24).
 
     The returned `photo_url` is then sent with POST /gym/progress.

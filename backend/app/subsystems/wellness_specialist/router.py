@@ -187,7 +187,7 @@ async def create_content(body: ContentIn, user: SpecialistDep, db: DbDep):
 
 
 @router.post("/content/media")
-async def upload_content_media(user: SpecialistDep, db: DbDep, file: UploadFile = File(...)):
+async def upload_content_media(user: SpecialistDep, file: UploadFile = File(...)):
     """Upload educational media to the public bucket; returns its URL (B11)."""
     content = await file.read()
     if len(content) > 15 * 1024 * 1024:
@@ -206,9 +206,10 @@ async def upload_credential(user: SpecialistDep, db: DbDep, file: UploadFile = F
     path = safe_object_path("cred", user.id, file.filename or "cert.pdf")
     await upload_object(CREDENTIALS_BUCKET, path, content, file.content_type or "application/pdf")
     spec = await db.get(WellnessSpecialist, uuid.UUID(user.id))
-    if spec is not None:
-        spec.certification_doc = path  # store the object path, not a public URL
-        await db.commit()
+    if spec is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Specialist profile not found")
+    spec.certification_doc = path  # store the object path, not a public URL
+    await db.commit()
     return {"stored": True}
 
 
