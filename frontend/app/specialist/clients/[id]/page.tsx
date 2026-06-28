@@ -19,7 +19,7 @@ export default function ClientDetailPage() {
   const activity = useResource<ActivityLog[]>(() => clientActivity(id), [id]);
   const progress = useResource<ProgressEntry[]>(() => clientProgress(id), [id]);
 
-  const draftKey = `onefit-feedback-${id}`;
+  const draftKey = `onefit-feedback-draft-${id}`;
   const [notes, setNotes] = useState(() =>
     typeof window !== "undefined" ? window.localStorage.getItem(draftKey) ?? "" : ""
   );
@@ -41,7 +41,8 @@ export default function ClientDetailPage() {
     try {
       await submitFeedback({ user_id: id, notes, plan_updated: planUpdated });
       setSent("Feedback sent — the client has been notified.");
-      onNotes("");
+      setNotes("");
+      if (typeof window !== "undefined") localStorage.removeItem(draftKey);
       setPlanUpdated(false);
     } catch (e) {
       setSendError(e instanceof Error ? e.message : "Failed to send");
