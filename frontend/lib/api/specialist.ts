@@ -52,6 +52,31 @@ export const assignTask = (body: WellnessTaskIn) =>
 export const deleteContent = (id: string) =>
   request<void>(`/specialist/content/${id}`, { method: "DELETE" });
 
+export interface HealthTrendIn {
+  cohort?: string;
+  period?: string;
+}
+
+export interface HealthTrendOut {
+  report_id: string;
+  specialist_id: string;
+  cohort: string;
+  period: string;
+  adherence: number | null;
+  avg_calories: number | null;
+  activity_consistency: number | null;
+  milestone_rate: number | null;
+  created_at: string;
+  recommendation?: string;
+}
+
+export const listHealthTrends = () => request<HealthTrendOut[]>("/specialist/health-trends");
+export const createHealthTrend = (body?: HealthTrendIn) =>
+  request<HealthTrendOut>("/specialist/health-trends", {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
+  });
+
 export const sendSpecialistAnnouncement = (body: {
   title: string;
   body: string;

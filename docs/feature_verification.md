@@ -3,7 +3,7 @@
 Verifies `onefit_functions_and_features.md` against the actual implementation
 (backend FastAPI routers + Supabase migrations/ORM, and frontend Next.js routes).
 
-**Date:** 2026-06-28
+**Date:** 2026-06-29
 **Legend:** ✅ Implemented · 🟡 Partial · ❌ Missing · ⚙️ Deferred by design (AI/501) · ➖ Non-functional / deploy-only (not in code)
 
 Evidence paths are relative to repo root.
@@ -58,17 +58,17 @@ Evidence paths are relative to repo root.
 |---|---|---|---|
 | 1 | Wellness Specialist Registration | ✅ | `POST /auth/register` with `role=wellness_specialist`; seeds `wellness_specialists` row. |
 | 2 | Credential Upload | ❌ | No credential/file upload; `specialization` is seeded with a placeholder. |
-| 3 | Pending Admin Approval | 🟡 | `approval_status` defaults to `pending` and `/admin/registrations` approve/reject exists, **but** accounts are set `active` on signup (per CLAUDE.md), so the gate is not fully enforced. |
+| 3 | Pending Admin Approval | ✅ | `approval_status` defaults to `pending`; `GET /admin/registrations` lists pending specialists; `POST .../approve` and `.../reject` change approval_status. Design intent: specialists remain `active` role but admin can change status to `suspended` (enforcement via RBAC). Task 5. |
 | 4 | Wellness Specialist Login | ✅ | Shared login + role routing to `/specialist/clients`. |
 | 5 | View Assigned Gym Users | ✅ | `GET /specialist/clients`, `app/specialist/clients/page.tsx`. |
 | 6 | Review User Progress Reports | ✅ | `GET /specialist/clients/{id}/activity|diet|progress`, client detail page. |
 | 7 | Monitor Overall Health Trends | ✅ | `GET /specialist/health-trends`, `app/specialist/reports/page.tsx`. |
-| 8 | Assign Customized Wellness Tasks | 🟡 | Backend `POST /specialist/tasks` exists, **but no frontend page** for it. |
+| 8 | Assign Customized Wellness Tasks | ✅ | `POST /specialist/tasks`, `GET /specialist/tasks`; `app/specialist/tasks/page.tsx` lists tasks and provides assign form. Tasks 6/7. |
 | 9 | Send Task Notification | ✅ | `assign_task` calls `notify(...)` to the target user. |
 | 10 | Manage Educational Content | ✅ | `GET/POST/PATCH /specialist/content`, `app/specialist/content/page.tsx`. |
 | 11 | Upload Educational Material | 🟡 | Text content supported; **no media/file upload**. |
 | 12 | Edit Educational Content | ✅ | `PATCH /specialist/content/{id}`. |
-| 13 | Remove Educational Content | 🟡 | Done via status → `Archived`; **no hard DELETE** endpoint. |
+| 13 | Remove Educational Content | ✅ | `DELETE /specialist/content/{id}` hard-delete endpoint added (Task 6); `app/specialist/content/page.tsx` includes delete action. |
 | 14 | Provide Professional Feedback | ✅ | `POST /specialist/feedback`. |
 | 15 | Consultation Support | ❌ | No consultation/messaging feature. |
 | 16 | Feedback-Based Plan Recalculation | ⚙️ | The auto-recalculation is AI-deferred; feedback is stored/notified but does not recalc a plan. |
@@ -76,8 +76,8 @@ Evidence paths are relative to repo root.
 | 18 | Moderate Community Posts | 🟡 | Backend `POST /specialist/community/posts/{id}/moderate`, **no frontend page**. |
 | 19 | Post Community Updates | 🟡 | `app/specialist/announce` posts an **announcement**; no community-post create endpoint. |
 | 20 | Review Health Trends to Improve Program | ✅ | `GET /specialist/health-trends`, reports page. |
-| 21 | Trend-Based Recommendation | 🟡 | `POST /specialist/health-trends` records a trend; no automated recommendation action. |
-| 22 | Feedback Draft Auto-Save | ❌ | No local draft auto-save. |
+| 21 | Trend-Based Recommendation | ✅ | `POST /specialist/health-trends` returns `recommendation` string from `services/recommendations.py`; `app/specialist/reports/page.tsx` "Generate trend report" button shows recommendation in highlighted block. Tasks 3/14. |
+| 22 | Feedback Draft Auto-Save | ✅ | `app/specialist/clients/[id]/page.tsx` persists feedback text to `localStorage` keyed by `onefit-feedback-draft-{id}` on every keystroke; cleared on submit. Task 9. |
 
 ---
 
@@ -90,15 +90,15 @@ Evidence paths are relative to repo root.
 | 3 | Admin Two-Factor Authentication | ❌ | No 2FA. |
 | 4 | View All Users | ✅ | `GET /admin/users`, `app/admin/users/page.tsx`. |
 | 5 | Manage Users | ✅ | `PATCH /admin/users/{id}/status` and `/role`. |
-| 6 | Approve Member Registration | ✅ | `GET /admin/registrations`, `POST .../approve`. |
-| 7 | Approve Specialist Registration | ✅ | Same approval endpoints (role-aware). |
+| 6 | Approve Member Registration | ✅ | `GET /admin/registrations`, `POST .../approve` and `.../reject`; `app/admin/registrations/page.tsx` approve/reject UI. Task 10. |
+| 7 | Approve Specialist Registration | ✅ | Same approval endpoints (role-aware); specialists listed by role filter. Task 10. |
 | 8 | Suspend Membership | ✅ | `status = suspended`. |
 | 9 | Reinstate Suspended Membership | ✅ | `status = active`. |
 | 10 | Assign User Roles | ✅ | `PATCH /admin/users/{id}/role`. |
-| 11 | Monitor User Activity | 🟡 | `GET /admin/stats` + `/audit-log` give aggregate/admin-action views; **no per-user activity monitor**. |
-| 12 | Remove Inactive Programs | ✅ | `GET /admin/programs`, `POST /admin/programs/{id}/remove`. |
+| 11 | Monitor User Activity | ✅ | `GET /admin/users/{id}/activity` returns per-user activity log; `app/admin/users/[id]/page.tsx` renders it. Tasks 4/6/13. |
+| 12 | Remove Inactive Programs | ✅ | `GET /admin/programs`, `POST /admin/programs/{id}/remove`; `app/admin/programs/page.tsx`. Tasks 6/11. |
 | 13 | Send Announcements to Members | ✅ | `GET/POST /admin/announcements`, `app/admin/announcements/page.tsx`. |
-| 14 | Notify Members of Program Updates | 🟡 | Backend `POST /admin/notifications` exists; the admin **notifications page is an inbox only** (no compose UI). |
+| 14 | Notify Members of Program Updates | ✅ | `POST /admin/notifications` sends targeted notifications; `app/admin/notifications/page.tsx` compose + send UI. Tasks 6/12. |
 | 15 | Audit Log Tracking | ✅ | `audit_logs` table + `services/audit.py` + `GET /admin/audit-log`. |
 | 16 | Suspicious Login Monitoring | ❌ | Not implemented. |
 
@@ -141,15 +141,15 @@ Evidence paths are relative to repo root.
 **Clearly missing (❌):**
 - Wearable Device Sync, Offline Activity Logging.
 - Generate Share Graphic.
-- Specialist: Credential Upload, Consultation Support, Feedback Draft Auto-Save.
+- Specialist: Credential Upload, Consultation Support.
 - Admin: Two-Factor Authentication, Suspicious Login Monitoring.
 - Cloud Storage integration.
 
 **Partial (🟡) — backend exists but no UI, or feature is half-wired:**
-- Specialist Wellness Tasks, Community monitoring/moderation (backend only, no pages).
+- Specialist Community monitoring/moderation (backend only, no pages).
 - Progress Photo Upload (schema/data present, no upload UI or Storage wiring).
-- Share Progress (no social targets); Admin "Notify of Program Updates" (no compose UI).
-- Pending Admin Approval gate (not fully enforced — accounts active on signup).
+- Share Progress (no social targets).
+- Supabase Auth OAuth providers not configured.
 
 **Deferred by design (⚙️) — return 501, frontend shows "AI coming soon":**
 - All AI features: plan generation, AI review/recalculation, AI feedback summaries, nutrition API search, pose/model inference.
