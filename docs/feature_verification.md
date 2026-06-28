@@ -58,7 +58,7 @@ Evidence paths are relative to repo root.
 |---|---|---|---|
 | 1 | Wellness Specialist Registration | ✅ | `POST /auth/register` with `role=wellness_specialist`; seeds `wellness_specialists` row. |
 | 2 | Credential Upload | ❌ | No credential/file upload; `specialization` is seeded with a placeholder. |
-| 3 | Pending Admin Approval | ✅ | `approval_status` defaults to `pending`; `GET /admin/registrations` lists pending specialists; `POST .../approve` and `.../reject` change approval_status. Design intent: specialists remain `active` role but admin can change status to `suspended` (enforcement via RBAC). Task 5. |
+| 3 | Pending Admin Approval | ✅ | Task 5: new specialists' `profiles.status` is set to `pending` on signup (`_provision_subtype`). The login flow blocks `pending` accounts — `app/login/page.tsx` clears the token and shows "awaiting admin approval", so a pending specialist cannot enter the app. Admin approves via `GET /admin/registrations` + `POST .../approve` (→ `active`) or rejects via `.../reject` (→ `suspended`). Gate enforced at login. |
 | 4 | Wellness Specialist Login | ✅ | Shared login + role routing to `/specialist/clients`. |
 | 5 | View Assigned Gym Users | ✅ | `GET /specialist/clients`, `app/specialist/clients/page.tsx`. |
 | 6 | Review User Progress Reports | ✅ | `GET /specialist/clients/{id}/activity|diet|progress`, client detail page. |
