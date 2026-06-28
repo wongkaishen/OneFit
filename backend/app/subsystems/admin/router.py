@@ -32,6 +32,7 @@ from app.models import (
 )
 from app.services.audit import record_audit
 from app.services.notification import notify
+from app.services.storage import CREDENTIALS_BUCKET, signed_url
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -543,3 +544,13 @@ async def send_notification(body: NotifyIn, admin: AdminDep, db: DbDep):
                        details=f"{body.audience}: {len(recipients)} recipient(s)")
     await db.commit()
     return {"sent": len(recipients), "audience": body.audience}
+
+
+# --- B2: View Specialist Credential -----------------------------------------
+@router.get("/specialists/{user_id}/credential")
+async def get_specialist_credential(user_id: uuid.UUID, admin: AdminDep, db: DbDep):
+    """Short-lived signed URL to a specialist's uploaded credential (B2)."""
+    spec = await db.get(WellnessSpecialist, user_id)
+    if spec is None or not spec.certification_doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No credential on file")
+    return {"url": await signed_url(CREDENTIALS_BUCKET, spec.certification_doc)}
