@@ -10,7 +10,7 @@ import datetime as dt
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,9 +32,17 @@ from app.models import (
     Profile,
     ProgressEntry,
     SpecialistClient,
+    WellnessSpecialist,
     WellnessTask,
     WorkoutPlan,
     WorkoutSession,
+)
+from app.services.storage import (
+    CREDENTIALS_BUCKET,
+    PUBLIC_BUCKET,
+    public_url,
+    safe_object_path,
+    upload_object,
 )
 from app.services.audit import record_audit
 from app.services.notification import notify
@@ -176,6 +184,32 @@ async def create_content(body: ContentIn, user: SpecialistDep, db: DbDep):
     await db.commit()
     await db.refresh(content)
     return content
+
+
+@router.post("/content/media")
+async def upload_content_media(user: SpecialistDep, db: DbDep, file: UploadFile = File(...)):
+    """Upload educational media to the public bucket; returns its URL (B11)."""
+    content = await file.read()
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Max 15 MB")
+    path = safe_object_path("content", user.id, file.filename or "media.bin")
+    await upload_object(PUBLIC_BUCKET, path, content, file.content_type or "application/octet-stream")
+    return {"media_url": public_url(PUBLIC_BUCKET, path)}
+
+
+@router.post("/credentials")
+async def upload_credential(user: SpecialistDep, db: DbDep, file: UploadFile = File(...)):
+    """Upload a certification doc to the private bucket; store its path (B2)."""
+    content = await file.read()
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Max 15 MB")
+    path = safe_object_path("cred", user.id, file.filename or "cert.pdf")
+    await upload_object(CREDENTIALS_BUCKET, path, content, file.content_type or "application/pdf")
+    spec = await db.get(WellnessSpecialist, uuid.UUID(user.id))
+    if spec is not None:
+        spec.certification_doc = path  # store the object path, not a public URL
+        await db.commit()
+    return {"stored": True}
 
 
 VALID_CONTENT_STATUS = {"Draft", "Published", "Archived"}
