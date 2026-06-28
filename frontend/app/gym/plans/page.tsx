@@ -9,10 +9,11 @@ import { PageIntro } from "@/components/ui/PageIntro";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
-import { listPlans, createPlan, listMealPlans, updatePlan, discardPlan } from "@/lib/api/gym";
+import { listPlans, createPlan, listMealPlans, updatePlan, discardPlan, acceptAiPlan } from "@/lib/api/gym";
+import { generateWorkoutPlan } from "@/lib/api/ai";
 import { shortDate } from "@/lib/format";
 import { MealPlanCard } from "@/components/MealPlanCard";
-import type { WorkoutPlan, MealPlanOut } from "@/lib/api/types";
+import type { WorkoutPlan, MealPlanOut, AIPlan } from "@/lib/api/types";
 
 export default function GymPlansPage() {
   const { data, error, loading, setData } = useResource<WorkoutPlan[]>(listPlans, []);
@@ -23,6 +24,26 @@ export default function GymPlansPage() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editGoal, setEditGoal] = useState("");
+
+  const [aiPlan, setAiPlan] = useState<AIPlan | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState<string | null>(null);
+
+  const generate = async () => {
+    if (!goal.trim()) return;
+    setAiMsg(null); setAiBusy(true);
+    try { setAiPlan(await generateWorkoutPlan(goal.trim())); }
+    catch (e) { setAiMsg(e instanceof ApiError && e.status === 501 ? "AI coming soon — add an OpenAI key." : "Generation failed."); }
+    finally { setAiBusy(false); }
+  };
+
+  const acceptAi = async () => {
+    if (!aiPlan) return;
+    const flat = aiPlan.days.flatMap((d) => d.exercises);
+    const plan = await acceptAiPlan(aiPlan.goal, flat);
+    setData((prev) => [plan, ...(prev ?? [])]);
+    setAiPlan(null);
+  };
 
   const saveEdit = async (id: string) => {
     if (!editGoal.trim()) return;
@@ -98,8 +119,31 @@ export default function GymPlansPage() {
             <Button type="submit" variant="dark" disabled={busy || !goal.trim()}>
               {busy ? "Creating…" : "Create plan"}
             </Button>
+            <Button type="button" variant="ghost" disabled={aiBusy || !goal.trim()} onClick={generate}>
+              {aiBusy ? "Generating…" : "Generate with AI"}
+            </Button>
           </form>
           {formErr && <div className="mt-2 text-[13px] text-coral">{formErr}</div>}
+          {aiMsg && <div className="mt-2 text-[13px] text-coral">{aiMsg}</div>}
+          {aiPlan && (
+            <div className="mt-4 border border-coral bg-white p-5">
+              <Label>AI proposed plan — {aiPlan.goal}</Label>
+              {aiPlan.days.map((d, i) => (
+                <div key={i} className="mt-3">
+                  <div className="font-sans text-[13px] text-charcoal">{d.day} · {d.focus}</div>
+                  {d.exercises.map((e, j) => (
+                    <div key={j} className="font-sans text-[12px] text-muted">
+                      {e.name}{e.sets ? ` — ${e.sets}×${e.reps}` : ""}
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <div className="mt-4 flex gap-2">
+                <Button type="button" variant="dark" onClick={acceptAi}>Accept plan</Button>
+                <Button type="button" variant="ghost" onClick={() => setAiPlan(null)}>Discard</Button>
+              </div>
+            </div>
+          )}
 
           <div className="mt-9">
             <Label>Your plans</Label>
