@@ -39,3 +39,22 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+export async function upload<T>(path: string, file: File, field = "file"): Promise<T> {
+  const headers = new Headers();
+  const t = token();
+  if (t) headers.set("Authorization", `Bearer ${t}`);
+  // NOTE: do NOT set Content-Type — the browser sets the multipart boundary.
+  const form = new FormData();
+  form.append(field, file);
+  const res = await fetch(`${BASE}${path}`, { method: "POST", body: form, headers, cache: "no-store" });
+  if (!res.ok) {
+    let msg: string = res.statusText;
+    try {
+      const body = await res.json();
+      if (body?.detail) msg = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+    } catch { /* non-JSON */ }
+    throw new ApiError(res.status, msg);
+  }
+  return (await res.json()) as T;
+}
