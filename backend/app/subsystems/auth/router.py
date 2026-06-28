@@ -6,18 +6,22 @@ handled by Supabase. The `on_auth_user_created` trigger creates the profile row;
 here we also create the gym_users + fitness_profiles rows for new self-signups.
 """
 
+import datetime as dt
 import logging
+import uuid as uuidlib
 from typing import Annotated, Literal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.security import CurrentUser, get_current_user
+from app.core.security import CurrentUser, bearer_scheme, get_current_user
+from app.models import LoginEvent, Profile
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
@@ -123,12 +127,25 @@ async def register(body: RegisterRequest, db: Annotated[AsyncSession, Depends(ge
 
 
 @router.post("/login")
-async def login(body: LoginRequest):
-    """Log in with email + password (UC2). Returns access/refresh tokens."""
-    return await _gotrue(
-        "/token?grant_type=password",
-        {"email": body.email, "password": body.password},
-    )
+async def login(body: LoginRequest, request: Request, db: Annotated[AsyncSession, Depends(get_db)]):
+    """Log in with email + password (UC2); records the attempt for monitoring (C16)."""
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    try:
+        tokens = await _gotrue("/token?grant_type=password", {"email": body.email, "password": body.password})
+    except HTTPException:
+        db.add(LoginEvent(event_id=uuidlib.uuid4(), email=body.email, user_id=None,
+                          success=False, ip=ip, user_agent=ua,
+                          created_at=dt.datetime.now(dt.timezone.utc)))
+        await db.commit()
+        raise
+    # success: resolve the profile id for the audit row
+    prof = (await db.execute(select(Profile.id).where(Profile.email == body.email))).scalar_one_or_none()
+    db.add(LoginEvent(event_id=uuidlib.uuid4(), email=body.email, user_id=prof,
+                      success=True, ip=ip, user_agent=ua,
+                      created_at=dt.datetime.now(dt.timezone.utc)))
+    await db.commit()
+    return tokens
 
 
 @router.get("/me", response_model=CurrentUser)
