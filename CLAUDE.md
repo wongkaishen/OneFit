@@ -73,7 +73,7 @@ python -m pytest tests/test_smoke.py::test_health -q # single test
 - `subsystems/gym_user/` — profile, manual plans, activity & diet logs, dashboard, progress + milestones (UC7), scheduling (UC9).
 - `subsystems/wellness_specialist/` (`/specialist`) — client roster + detail, client activity/diet/progress reads, educational content, feedback (with notify), and meal plans (`public.meal_plans`).
 - `subsystems/admin/` (`/admin`) — user listing + status/role changes (writes to audit log), `/stats` KPIs, `/audit-log`, and `/announcements` (list + create). Status/role changes write to the audit log.
-- `subsystems/ai_integration/` — **DEFERRED**: every endpoint returns 501. Frontend already handles this. Manual flows are designed behind a service boundary so AI can drop in without touching actor code.
+- `subsystems/ai_integration/` — **OpenAI-backed, key-gated**: workout-plan generation, nutrition lookup, feedback summarisation, and target recalculation call `app/services/ai.py` (AsyncOpenAI). When `OPENAI_API_KEY` is unset every `/ai` endpoint returns 501 so the frontend's "AI coming soon" UX still works. Only pose/model inference (D13) remains fully deferred.
 
 Platform services: `services/audit.py`, `services/notification.py`. Core: `core/config.py` (settings), `core/database.py` (async engine/session), `core/security.py` (Supabase JWT verify + `require_role(...)` guards: `require_gym_user`, `require_specialist`, `require_admin`).
 
@@ -100,6 +100,6 @@ The repo notes this schema is already applied to Supabase project `cnsbxqinucvgi
 ## Conventions specific to this repo
 
 - **Don't add automated frontend tests.** This is a uni-project deliverable; verification is `npm run build` + `npm run lint` + manual click-through of the routes in `frontend/README.md` against a running backend. Mention this explicitly when asked to "add tests" on the frontend.
-- **501 is a feature, not a bug.** AI endpoints intentionally return 501; the frontend renders "AI coming soon". Don't stub them in the backend with fake data.
+- **501 is the AI-unconfigured fallback.** When `OPENAI_API_KEY` is unset, `/ai` endpoints return 501 and the frontend renders "AI coming soon". With a key present they call OpenAI. Don't stub them with fake data — the key-gated path is the real implementation.
 - **Schema lives in SQL.** Don't add `Base.metadata.create_all` or Alembic — modify the SQL files in `backend/supabase/migrations/` and the ORM mappings together.
 - **Keep `CLAUDE.md` and `AGENTS.md` in sync.** Both files hold the same guidance for different assistants; update them together.

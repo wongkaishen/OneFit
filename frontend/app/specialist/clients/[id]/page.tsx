@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/Button";
 import { BarChart } from "@/components/ui/BarChart";
 import { useResource } from "@/lib/api/useResource";
 import { getClient, clientActivity, clientProgress, submitFeedback } from "@/lib/api/specialist";
+import { feedbackSummary } from "@/lib/api/ai";
 import { relativeTime } from "@/lib/format";
+import { ApiError } from "@/lib/api/client";
 import type { ActivityLog, ClientSummary, ProgressEntry } from "@/lib/api/types";
 
 export default function ClientDetailPage() {
@@ -166,10 +168,18 @@ export default function ClientDetailPage() {
                     />
                     I updated their plan
                   </label>
-                  <div className="mt-3">
+                  <div className="mt-3 flex gap-2">
                     <Button size="sm" onClick={send} disabled={sending || !notes.trim()}>
                       {sending ? "Sending…" : "Send feedback"}
                     </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={async () => {
+                      try {
+                        const { summary } = await feedbackSummary(notes || "general check-in", `Client ${client.data?.name ?? ""}`);
+                        onNotes(summary);
+                      } catch (e) {
+                        alert(e instanceof ApiError && e.status === 501 ? "AI coming soon — add an OpenAI key." : "Draft failed.");
+                      }
+                    }}>AI draft</Button>
                   </div>
                   {sent && <div className="mt-3 font-sans text-[12px] text-good">{sent}</div>}
                   {sendError && <div className="mt-3 font-sans text-[12px] text-coral">{sendError}</div>}

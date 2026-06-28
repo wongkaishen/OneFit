@@ -17,8 +17,8 @@ Evidence paths are relative to repo root.
 | 1 | Gym User Registration | ✅ | `POST /auth/register`, `app/register/page.tsx`. Email verification handled by Supabase GoTrue. |
 | 2 | Gym User Login | ✅ | `POST /auth/login`, `app/login/page.tsx`, `lib/auth/session.ts`. |
 | 3 | Manage Profile | ✅ | `GET/PUT /gym/profile`, `app/gym/profile/page.tsx`. |
-| 4 | Create Personalized Workout Plan (AI) | 🟡 | Manual plan create only (`POST /gym/plans`, `app/gym/plans`). The **AI generation** is ⚙️ `POST /ai/workout-plan` returns 501. |
-| 5 | Accept Workout Plan | 🟡 | Saving a manual plan = accept. No accept/reject flow over an AI-proposed plan (AI deferred). |
+| 4 | Create Personalized Workout Plan (AI) | ✅ | Manual plan + AI generation via `POST /ai/workout-plan` (key-gated; returns 501 without `OPENAI_API_KEY`). `app/gym/plans/page.tsx` "Generate with AI" button. |
+| 5 | Accept Workout Plan | ✅ | Accept/reject AI proposal UI added (`app/gym/plans/page.tsx`); `POST /gym/plans/ai-accept` persists plan + exercises with `generated_by='openai'`. |
 | 6 | Edit Workout Plan | ✅ | `PATCH /gym/plans/{id}`, plans page edit UI (`app/gym/plans/page.tsx`). |
 | 7 | Discard Workout Plan | ✅ | `DELETE /gym/plans/{id}`, plans page discard action (`app/gym/plans/page.tsx`). |
 | 8 | Request AI Review for Edited Plan | ⚙️ | AI subsystem deferred (501). |
@@ -31,7 +31,7 @@ Evidence paths are relative to repo root.
 | 15 | Add Calories per Day (quick) | ✅ | `POST /gym/diet` accepts calories-only (macros optional). |
 | 16 | Log Dietary Intake | ✅ | `POST /gym/diet`, `app/gym/diet/page.tsx`. |
 | 17 | Quick Add Calories | ✅ | Same flow as #15 (calories-only path). |
-| 18 | Nutrition API Food Search | ⚙️ | `GET /ai/nutrition/search` returns 501. |
+| 18 | Nutrition API Food Search | ✅ | `GET /ai/nutrition/search` (key-gated OpenAI); "Look up" button in `app/gym/diet/page.tsx` pre-fills form. Returns 501 without `OPENAI_API_KEY`. |
 | 19 | Daily Calorie Counter | ✅ | `GET /gym/dashboard`, dashboard page. |
 | 20 | Macro Tracking | ✅ | protein/carbs/fat captured in diet log + types. |
 | 21 | Calorie Progress Ring Chart | ✅ | `CalorieRing` component in `app/gym/dashboard/page.tsx`. |
@@ -39,7 +39,7 @@ Evidence paths are relative to repo root.
 | 23 | Update Progress | ✅ | `POST /gym/progress`, `app/gym/progress/page.tsx`. |
 | 24 | Progress Photo Upload | ✅ | `POST /gym/progress/photo` (multipart) stores file in `onefit-public` bucket via `services/storage.py`; `photo_url` returned and rendered in `app/gym/progress/page.tsx`. Tasks 4/9. |
 | 25 | Progress Trend Graphs | ✅ | `BarChart` component wired onto `app/gym/progress/page.tsx` rendering weight trend over last entries. |
-| 26 | AI Recalculate Workout/Diet Targets | ⚙️ | AI deferred (501). |
+| 26 | AI Recalculate Workout/Diet Targets | ✅ | `POST /ai/recalculate-targets` (key-gated OpenAI); `recalcTargets()` wrapper in `lib/api/ai.ts`. Returns 501 without key. |
 | 27 | Achievement Badge / Milestone | ✅ | `services/milestones.py`, `GET /gym/milestones`, rendered on progress page. |
 | 28 | Share Progress | 🟡 | Native share-sheet/clipboard fallback only. **No OneFit Community / Instagram / WhatsApp** integration. |
 | 29 | Generate Share Graphic | ❌ | Shares plain text; no formatted graphic with logo. |
@@ -71,7 +71,7 @@ Evidence paths are relative to repo root.
 | 13 | Remove Educational Content | ✅ | `DELETE /specialist/content/{id}` hard-delete endpoint added (Task 6); `app/specialist/content/page.tsx` includes delete action. |
 | 14 | Provide Professional Feedback | ✅ | `POST /specialist/feedback`. |
 | 15 | Consultation Support | ❌ | No consultation/messaging feature. |
-| 16 | Feedback-Based Plan Recalculation | ⚙️ | The auto-recalculation is AI-deferred; feedback is stored/notified but does not recalc a plan. |
+| 16 | Feedback-Based Plan Recalculation | ✅ | `POST /ai/recalculate-targets` (key-gated) exposes the recalc endpoint; `recalcTargets()` wrapper available. Returns 501 without key. |
 | 17 | Monitor Community Groups | 🟡 | Backend `GET /specialist/community/groups` + posts exist, **no frontend page**. |
 | 18 | Moderate Community Posts | 🟡 | Backend `POST /specialist/community/posts/{id}/moderate`, **no frontend page**. |
 | 19 | Post Community Updates | 🟡 | `app/specialist/announce` posts an **announcement**; no community-post create endpoint. |
@@ -116,11 +116,11 @@ Evidence paths are relative to repo root.
 | 6 | FastAPI Backend | ✅ | `backend/app/main.py`. |
 | 7 | Next.js Frontend | ✅ | `frontend/app` (App Router). |
 | 8 | Vercel Hosting | ➖ | Deployment concern; not verifiable from repo. |
-| 9 | AI Plan Generation | ⚙️ | `POST /ai/workout-plan` → 501. |
-| 10 | AI Feedback Generation / Summary | ⚙️ | Deferred (no endpoint; roadmap seam only). |
-| 11 | AI Plan Recalculation | ⚙️ | Deferred. |
-| 12 | Nutrition Lookup Integration | ⚙️ | `GET /ai/nutrition/search` → 501. |
-| 13 | Pose / Model Inference | ⚙️ | Deferred (mentioned in SDS only). |
+| 9 | AI Plan Generation | ✅ | `POST /ai/workout-plan` — key-gated OpenAI; 501 without key. `app/gym/plans/page.tsx`. |
+| 10 | AI Feedback Generation / Summary | ✅ | `POST /ai/feedback-summary` — key-gated; "AI draft" button in `app/specialist/clients/[id]/page.tsx`. |
+| 11 | AI Plan Recalculation | ✅ | `POST /ai/recalculate-targets` — key-gated. |
+| 12 | Nutrition Lookup Integration | ✅ | `GET /ai/nutrition/search` — key-gated OpenAI; pre-fills diet form. |
+| 13 | Pose / Model Inference | ⚙️ | Deferred (mentioned in SDS only; out of scope for this project). |
 | 14 | Notification Service | ✅ | `services/notification.py`. |
 | 15 | Email Service | 🟡 | Email verification handled by Supabase; **no custom email flow** in app. |
 | 16 | Responsive Web Application | 🟡 | Tailwind + fixed-sidebar shell; not explicitly mobile-responsive (sidebar is fixed, not breakpoint-based). |
