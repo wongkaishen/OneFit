@@ -1,6 +1,6 @@
 import { request, upload } from "./client";
 import type {
-  ActivityLog, ClientSummary, ContentIn, ContentOut, DietaryLog,
+  ActivityLog, ClientSummary, CommunityGroup, CommunityPost, ContentIn, ContentOut, DietaryLog,
   FeedbackIn, MealPlanIn, MealPlanOut, MealPlanUpdate, ProgressEntry,
   WellnessTaskOut, WellnessTaskIn,
 } from "./types";
@@ -92,3 +92,14 @@ export const uploadContentMedia = (file: File) =>
   upload<{ media_url: string }>("/specialist/content/media", file);
 export const uploadCredential = (file: File) =>
   upload<{ stored: boolean }>("/specialist/credentials", file);
+
+// Community (B17, B18, B19)
+export const listGroups = () => request<CommunityGroup[]>("/specialist/community/groups");
+export const createGroup = (name: string, description?: string) =>
+  request<CommunityGroup>("/specialist/community/groups", { method: "POST", body: JSON.stringify({ name, description }) });
+export const listGroupPosts = (id: string) =>
+  request<CommunityPost[]>(`/specialist/community/groups/${id}/posts`);
+export const createGroupPost = (id: string, content: string) =>
+  request<CommunityPost>(`/specialist/community/groups/${id}/posts`, { method: "POST", body: JSON.stringify({ content }) });
+export const moderatePost = (id: string, action: "remove" | "warn" | "escalate", severity?: string) =>
+  request<CommunityPost>(`/specialist/community/posts/${id}/moderate`, { method: "POST", body: JSON.stringify({ action, severity }) });

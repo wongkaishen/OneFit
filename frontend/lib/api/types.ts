@@ -375,3 +375,9 @@ export interface NutritionInfo {
 export interface AITargets {
   calories: number; protein_g: number; carbs_g: number; fat_g: number; weekly_sessions: number; rationale: string;
 }
+
+export interface CommunityGroup { group_id: string; name: string; description: string | null; }
+export interface CommunityPost {
+  post_id: string; group_id: string; author_id: string; content: string;
+  status: string; severity: string | null; created_at?: string;
+}

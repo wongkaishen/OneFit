@@ -1,6 +1,7 @@
 import { request, upload } from "./client";
 import type {
   AIExercise,
+  CommunityGroup, CommunityPost,
   FitnessProfile, FitnessProfileIn,
   GymActivityIn, GymActivityLog,
   GymDashboard,
@@ -63,3 +64,9 @@ export const uploadProgressPhoto = (file: File) =>
 // Accept AI-generated workout plan (A5)
 export const acceptAiPlan = (goal: string, exercises: AIExercise[]) =>
   request<WorkoutPlan>("/gym/plans/ai-accept", { method: "POST", body: JSON.stringify({ goal, exercises }) });
+
+// Community (A28)
+export const gymListGroups = () => request<CommunityGroup[]>("/gym/community/groups");
+export const gymListPosts = (id: string) => request<CommunityPost[]>(`/gym/community/groups/${id}/posts`);
+export const gymCreatePost = (id: string, content: string) =>
+  request<CommunityPost>(`/gym/community/groups/${id}/posts`, { method: "POST", body: JSON.stringify({ content }) });
