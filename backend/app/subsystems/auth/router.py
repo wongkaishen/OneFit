@@ -72,6 +72,12 @@ async def _provision_subtype(db: AsyncSession, user_id: str, role: RegisterRole)
                 ),
                 {"id": user_id, "spec": "General Wellness"},
             )
+            # B3: specialists require admin approval before access. The trigger sets
+            # 'active'; downgrade to 'pending' so AuthGate blocks them until approved.
+            await db.execute(
+                text("update public.profiles set status='pending' where id = :id"),
+                {"id": user_id},
+            )
         else:
             await db.execute(
                 text("insert into public.gym_users (user_id) values (:id) on conflict do nothing"),
