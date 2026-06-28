@@ -23,6 +23,7 @@ from app.models import (
     AuditLog,
     DietaryLog,
     GymUser,
+    LoginEvent,
     Notification,
     Profile,
     ProgressEntry,
@@ -544,6 +545,30 @@ async def send_notification(body: NotifyIn, admin: AdminDep, db: DbDep):
                        details=f"{body.audience}: {len(recipients)} recipient(s)")
     await db.commit()
     return {"sent": len(recipients), "audience": body.audience}
+
+
+# --- C16: Login Events Monitor -----------------------------------------------
+@router.get("/login-events")
+async def login_events(admin: AdminDep, db: DbDep, hours: int = 24, failures_only: bool = False):
+    """Recent login attempts with a suspicious flag (>=5 failures/email/window) (C16)."""
+    since = _now() - dt.timedelta(hours=hours)
+    stmt = select(LoginEvent).where(LoginEvent.created_at >= since).order_by(LoginEvent.created_at.desc())
+    if failures_only:
+        stmt = stmt.where(LoginEvent.success.is_(False))
+    rows = (await db.execute(stmt)).scalars().all()
+    # count failures per email in-window
+    fail_counts: dict[str, int] = {}
+    for r in rows:
+        if not r.success:
+            fail_counts[r.email] = fail_counts.get(r.email, 0) + 1
+    return [
+        {
+            "event_id": r.event_id, "email": r.email, "success": r.success,
+            "ip": r.ip, "user_agent": r.user_agent, "created_at": r.created_at,
+            "suspicious": fail_counts.get(r.email, 0) >= 5,
+        }
+        for r in rows
+    ]
 
 
 # --- B2: View Specialist Credential -----------------------------------------

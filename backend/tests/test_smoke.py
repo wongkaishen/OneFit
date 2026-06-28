@@ -37,6 +37,7 @@ def test_openapi_lists_all_subsystems(client):
         ("get", "/gym/sessions"),
         ("get", "/specialist/content"),
         ("get", "/admin/users"),
+        ("get", "/admin/login-events"),
         ("get", "/notifications"),
         ("get", "/messages/threads"),
     ],
