@@ -25,6 +25,8 @@ from app.services.scheduling import suggest_alternative_slot
 from app.services.notification import notify
 from app.models import (
     ActivityLog,
+    CommunityGroup,
+    CommunityPost,
     DietaryLog,
     Exercise,
     Feedback,
@@ -463,3 +465,43 @@ async def schedule_session(body: SessionIn, user: GymUserDep, db: DbDep):
     await db.commit()
     await db.refresh(session)
     return session
+
+
+# --- Community (A28) ---------------------------------------------------------
+class CommunityPostIn(BaseModel):
+    content: str
+
+
+@router.get("/community/groups")
+async def gym_list_groups(user: GymUserDep, db: DbDep):
+    rows = (await db.execute(select(CommunityGroup).order_by(CommunityGroup.name))).scalars().all()
+    return [{"group_id": g.group_id, "name": g.name, "description": g.description} for g in rows]
+
+
+@router.get("/community/groups/{group_id}/posts")
+async def gym_list_posts(group_id: uuid.UUID, user: GymUserDep, db: DbDep):
+    if await db.get(CommunityGroup, group_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    rows = (await db.execute(
+        select(CommunityPost)
+        .where(CommunityPost.group_id == group_id, CommunityPost.status != "Removed")
+        .order_by(CommunityPost.created_at.desc())
+    )).scalars().all()
+    return rows
+
+
+@router.post("/community/groups/{group_id}/posts", status_code=status.HTTP_201_CREATED)
+async def gym_create_post(group_id: uuid.UUID, body: CommunityPostIn, user: GymUserDep, db: DbDep):
+    """Gym user posts to a group — also the target of 'share progress' (A28)."""
+    if await db.get(CommunityGroup, group_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    if not body.content.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="content is required")
+    post = CommunityPost(
+        post_id=uuid.uuid4(), group_id=group_id, author_id=uuid.UUID(user.id),
+        content=body.content.strip(), status="Posted",
+    )
+    db.add(post)
+    await db.commit()
+    await db.refresh(post)
+    return post
