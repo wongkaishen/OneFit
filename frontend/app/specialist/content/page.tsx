@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
-import { listContent, createContent, updateContent, deleteContent } from "@/lib/api/specialist";
+import { listContent, createContent, updateContent, deleteContent, uploadContentMedia } from "@/lib/api/specialist";
 import type { ContentOut } from "@/lib/api/types";
 
 const FILTERS = ["All", "Draft", "Published"];
@@ -24,6 +24,7 @@ export default function ContentPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", body: "", category: "", media_url: "", permission_confirmed: false });
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
@@ -37,7 +38,19 @@ export default function ContentPage() {
   const resetForm = () => {
     setForm({ title: "", body: "", category: "", media_url: "", permission_confirmed: false });
     setEditingId(null);
+    setMediaUrl(null);
     setErr(null);
+  };
+
+  const onPickMedia = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const { media_url } = await uploadContentMedia(file);
+      setMediaUrl(media_url);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Media upload failed");
+    }
   };
 
   const openCreate = () => {
@@ -80,7 +93,7 @@ export default function ContentPage() {
           title: form.title,
           body: form.body,
           category: form.category,
-          media_url: form.media_url || null,
+          media_url: mediaUrl ?? (form.media_url || null),
           permission_confirmed: form.permission_confirmed,
         });
         setData([created, ...(data ?? [])]);
@@ -155,6 +168,11 @@ export default function ContentPage() {
               <input placeholder="Media URL (optional)" value={form.media_url}
                 onChange={(e) => setForm({ ...form, media_url: e.target.value })}
                 className="mt-3 w-full border border-border bg-white p-2 font-sans text-[13px] outline-none" />
+              <div className="mt-3 flex flex-col gap-2">
+                <Label>Upload media (optional)</Label>
+                <input type="file" onChange={onPickMedia} className="font-sans text-[13px]" />
+                {mediaUrl && <div className="font-sans text-[12px] text-good">Media attached.</div>}
+              </div>
               {!editingId && (
                 <label className="mt-3 flex items-center gap-2 font-sans text-[12px] text-subtle">
                   <input type="checkbox" checked={form.permission_confirmed}
