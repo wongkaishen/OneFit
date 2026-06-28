@@ -12,11 +12,19 @@ import { listMealPlans } from "@/lib/api/gym";
 import { relativeTime } from "@/lib/format";
 import type { MealPlanOut, MealPlanDay } from "@/lib/api/types";
 
-/** Narrow the loosely-typed payload into renderable days. */
+/** Narrow the loosely-typed payload into renderable days.
+ * Only keeps well-formed day objects (an object with a `meals` array); legacy or
+ * malformed rows (e.g. payload `["string"]`) are dropped so the UI shows the
+ * empty state instead of crashing. */
 function asDays(payload: MealPlanOut["payload"]): MealPlanDay[] {
-  return Array.isArray(payload) ? (payload as MealPlanDay[]) : [];
+  if (!Array.isArray(payload)) return [];
+  return (payload as unknown[]).filter(
+    (d): d is MealPlanDay =>
+      typeof d === "object" && d !== null && Array.isArray((d as MealPlanDay).meals),
+  );
 }
-const mealKcal = (items: { kcal: number }[]) => items.reduce((s, it) => s + (it.kcal || 0), 0);
+const mealKcal = (items: { kcal: number }[] | undefined) =>
+  (items ?? []).reduce((s, it) => s + (it.kcal || 0), 0);
 
 export default function GymMealPlansPage() {
   const { data, error, loading } = useResource<MealPlanOut[]>(listMealPlans, []);
@@ -44,7 +52,7 @@ export default function GymMealPlansPage() {
   const [dayIdx, setDayIdx] = useState(0);
   useEffect(() => setDayIdx(0), [selected?.plan_id]);
   const day = days[dayIdx];
-  const dayKcal = day ? day.meals.reduce((s, m) => s + mealKcal(m.items), 0) : 0;
+  const dayKcal = (day?.meals ?? []).reduce((s, m) => s + mealKcal(m.items ?? []), 0);
 
   return (
     <>
@@ -147,10 +155,10 @@ export default function GymMealPlansPage() {
                                 </span>
                                 <Label>{mealKcal(m.items)} kcal</Label>
                               </div>
-                              {m.items.length === 0 ? (
+                              {(m.items ?? []).length === 0 ? (
                                 <div className="py-2 font-sans text-[13px] text-muted">No items</div>
                               ) : (
-                                m.items.map((it, i) => (
+                                (m.items ?? []).map((it, i) => (
                                   <div key={`${it.name}-${i}`}>
                                     <div className="flex justify-between py-[11px]">
                                       <span className="font-sans text-[13px] text-charcoal">{it.name}</span>
