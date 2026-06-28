@@ -66,4 +66,9 @@ async def signed_url(bucket: str, path: str, expires_in: int = 3600) -> str:
         from fastapi import HTTPException
         raise HTTPException(status_code=502, detail=f"Storage sign failed: {resp.text}")
     signed = resp.json().get("signedURL", "")
-    return f"{s.supabase_url.rstrip('/')}/storage/v1{signed}"
+    base = s.supabase_url.rstrip("/")
+    # signedURL is normally returned as "/object/sign/{bucket}/{path}?token=..."
+    # (no /storage/v1 prefix). Guard against a doubled prefix if that ever changes.
+    if signed.startswith("/storage/v1"):
+        return f"{base}{signed}"
+    return f"{base}/storage/v1{signed}"
