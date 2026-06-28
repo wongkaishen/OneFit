@@ -9,7 +9,8 @@ import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
 import { listProgress, addProgress, listMilestones } from "@/lib/api/gym";
-import { relativeTime } from "@/lib/format";
+import { relativeTime, shortDate } from "@/lib/format";
+import { BarChart } from "@/components/ui/BarChart";
 import type { GymProgressEntry, GymMilestone } from "@/lib/api/types";
 
 export default function GymProgressPage() {
@@ -90,6 +91,12 @@ export default function GymProgressPage() {
     }
   };
 
+  const weightSeries = [...(progress.data ?? [])]
+    .filter((e) => e.weight != null)
+    .reverse()
+    .slice(-8)
+    .map((e) => ({ k: shortDate(e.recorded_at), v: Number(e.weight) }));
+
   return (
     <>
       <TopBar title="Progress" search="Search" avatarLetter="G" />
@@ -122,6 +129,15 @@ export default function GymProgressPage() {
           </form>
           {error && <div className="mt-2 text-[13px] text-coral">{error}</div>}
           {shared && <div className="mt-2 text-[13px] text-good">{shared}</div>}
+
+          {weightSeries.length > 0 && (
+            <div className="mt-6 border border-border bg-white p-5">
+              <Label>Weight trend</Label>
+              <div className="mt-4">
+                <BarChart data={weightSeries} />
+              </div>
+            </div>
+          )}
 
           <div className="mt-9 grid grid-cols-2 gap-9">
             <div>
