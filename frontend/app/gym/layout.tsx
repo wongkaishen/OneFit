@@ -10,6 +10,7 @@ const GYM_NAV: NavItem[] = [
   { label: "Meal Plans", href: "/gym/meal-plans" },
   { label: "Feedback", href: "/gym/feedback" },
   { label: "Calendar", href: "/gym/calendar" },
+  { label: "Community", href: "/gym/community" },
   { label: "Notifications", href: "/gym/notifications" },
   { label: "Profile", href: "/gym/profile" },
 ];
