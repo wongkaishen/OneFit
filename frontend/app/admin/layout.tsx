@@ -4,6 +4,7 @@ import { AuthGate } from "@/components/shell/AuthGate";
 const ADMIN_NAV: NavItem[] = [
   { label: "Dashboard", href: "/admin/dashboard" },
   { label: "Users", href: "/admin/users" },
+  { label: "Registrations", href: "/admin/registrations" },
   { label: "Announcements", href: "/admin/announcements" },
   { label: "Notifications", href: "/admin/notifications" },
 ];
