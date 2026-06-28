@@ -19,6 +19,7 @@ from app.core.database import get_db
 from app.core.security import CurrentUser, require_gym_user
 from app.services.milestones import check_and_award
 from app.services.calories import estimate_calories_burned
+from app.services.metrics import weekly_consistency
 from app.models import (
     ActivityLog,
     DietaryLog,
@@ -202,12 +203,31 @@ async def dashboard(user: GymUserDep, db: DbDep, day: dt.date | None = None):
         )
     ).scalars().all()
 
+    # A14: trailing-week consistency over distinct active dates (activity OR diet).
+    since = day - dt.timedelta(days=6)
+    act_dates = (
+        await db.execute(
+            select(ActivityLog.log_date).where(
+                ActivityLog.user_id == uid, ActivityLog.log_date >= since
+            )
+        )
+    ).scalars().all()
+    diet_dates = (
+        await db.execute(
+            select(DietaryLog.log_date).where(
+                DietaryLog.user_id == uid, DietaryLog.log_date >= since
+            )
+        )
+    ).scalars().all()
+    consistency = weekly_consistency(set(act_dates) | set(diet_dates), day)
+
     return {
         "date": day,
         "calories_consumed": float(sum(d.calories or 0 for d in consumed)),
         "calories_burned": float(sum(a.calories_burned or 0 for a in burned)),
         "diet_entries": len(consumed),
         "activity_entries": len(burned),
+        **consistency,
     }
 
 
