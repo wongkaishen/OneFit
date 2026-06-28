@@ -96,11 +96,14 @@ export default function ContentPage() {
 
   const remove = async (id: string) => {
     if (!confirm("Permanently delete this content?")) return;
+    setRowBusy(id);
     try {
       await deleteContent(id);
       setData((data ?? []).filter((c) => c.content_id !== id));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to delete");
+    } finally {
+      setRowBusy(null);
     }
   };
 
