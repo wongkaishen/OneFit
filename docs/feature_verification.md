@@ -37,7 +37,7 @@ Evidence paths are relative to repo root.
 | 21 | Calorie Progress Ring Chart | ✅ | `CalorieRing` component in `app/gym/dashboard/page.tsx`. |
 | 22 | View Recommended Meal Plan | ✅ | `GET /gym/meal-plans`, `app/gym/meal-plans/page.tsx` (specialist-published plans). |
 | 23 | Update Progress | ✅ | `POST /gym/progress`, `app/gym/progress/page.tsx`. |
-| 24 | Progress Photo Upload | 🟡 | `progress_entries.photo_url` column exists, but there is **no upload UI and no Storage wiring**; only weight/body-fat are captured. |
+| 24 | Progress Photo Upload | ✅ | `POST /gym/progress/photo` (multipart) stores file in `onefit-public` bucket via `services/storage.py`; `photo_url` returned and rendered in `app/gym/progress/page.tsx`. Tasks 4/9. |
 | 25 | Progress Trend Graphs | ✅ | `BarChart` component wired onto `app/gym/progress/page.tsx` rendering weight trend over last entries. |
 | 26 | AI Recalculate Workout/Diet Targets | ⚙️ | AI deferred (501). |
 | 27 | Achievement Badge / Milestone | ✅ | `services/milestones.py`, `GET /gym/milestones`, rendered on progress page. |
@@ -57,7 +57,7 @@ Evidence paths are relative to repo root.
 | # | Feature | Status | Evidence / Notes |
 |---|---|---|---|
 | 1 | Wellness Specialist Registration | ✅ | `POST /auth/register` with `role=wellness_specialist`; seeds `wellness_specialists` row. |
-| 2 | Credential Upload | ❌ | No credential/file upload; `specialization` is seeded with a placeholder. |
+| 2 | Credential Upload | ✅ | `POST /specialist/credential` (multipart) stores file in `onefit-credentials` bucket; upload control added to `app/specialist/content/page.tsx`. Tasks 8/11. |
 | 3 | Pending Admin Approval | ✅ | Task 5: new specialists' `profiles.status` is set to `pending` on signup (`_provision_subtype`). The login flow blocks `pending` accounts — `app/login/page.tsx` clears the token and shows "awaiting admin approval", so a pending specialist cannot enter the app. Admin approves via `GET /admin/registrations` + `POST .../approve` (→ `active`) or rejects via `.../reject` (→ `suspended`). Gate enforced at login. |
 | 4 | Wellness Specialist Login | ✅ | Shared login + role routing to `/specialist/clients`. |
 | 5 | View Assigned Gym Users | ✅ | `GET /specialist/clients`, `app/specialist/clients/page.tsx`. |
@@ -66,7 +66,7 @@ Evidence paths are relative to repo root.
 | 8 | Assign Customized Wellness Tasks | ✅ | `POST /specialist/tasks`, `GET /specialist/tasks`; `app/specialist/tasks/page.tsx` lists tasks and provides assign form. Tasks 6/7. |
 | 9 | Send Task Notification | ✅ | `assign_task` calls `notify(...)` to the target user. |
 | 10 | Manage Educational Content | ✅ | `GET/POST/PATCH /specialist/content`, `app/specialist/content/page.tsx`. |
-| 11 | Upload Educational Material | 🟡 | Text content supported; **no media/file upload**. |
+| 11 | Upload Educational Material | ✅ | `POST /specialist/content/media` (multipart) stores file in `onefit-public` bucket; upload input in `app/specialist/content/page.tsx` form. Tasks 5/10. |
 | 12 | Edit Educational Content | ✅ | `PATCH /specialist/content/{id}`. |
 | 13 | Remove Educational Content | ✅ | `DELETE /specialist/content/{id}` hard-delete endpoint added (Task 6); `app/specialist/content/page.tsx` includes delete action. |
 | 14 | Provide Professional Feedback | ✅ | `POST /specialist/feedback`. |
@@ -112,7 +112,7 @@ Evidence paths are relative to repo root.
 | 2 | Supabase Authentication | 🟡 | Email/password via GoTrue is wired; **OAuth providers not configured** in code. |
 | 3 | Supabase PostgreSQL Database | ✅ | Migrations `0001–0011`, async SQLAlchemy. |
 | 4 | Supabase Row-Level Security | ✅ | `0002_rls.sql`, `0010_meal_plans_rls.sql`. |
-| 5 | Cloud Storage | ❌ | `photo_url` columns exist but no Storage bucket integration/upload code. |
+| 5 | Cloud Storage | ✅ | Migration `0012_storage.sql` creates `onefit-public` + `onefit-credentials` buckets; `services/storage.py` (`upload_object`, `public_url`, `signed_url`); progress photo, content media, and specialist credential upload endpoints all wired. Tasks 2/3/4/5/6/8/9/10/11. |
 | 6 | FastAPI Backend | ✅ | `backend/app/main.py`. |
 | 7 | Next.js Frontend | ✅ | `frontend/app` (App Router). |
 | 8 | Vercel Hosting | ➖ | Deployment concern; not verifiable from repo. |
@@ -141,13 +141,11 @@ Evidence paths are relative to repo root.
 **Clearly missing (❌):**
 - Wearable Device Sync, Offline Activity Logging.
 - Generate Share Graphic.
-- Specialist: Credential Upload, Consultation Support.
+- Specialist: Consultation Support.
 - Admin: Two-Factor Authentication, Suspicious Login Monitoring.
-- Cloud Storage integration.
 
 **Partial (🟡) — backend exists but no UI, or feature is half-wired:**
 - Specialist Community monitoring/moderation (backend only, no pages).
-- Progress Photo Upload (schema/data present, no upload UI or Storage wiring).
 - Share Progress (no social targets).
 - Supabase Auth OAuth providers not configured.
 

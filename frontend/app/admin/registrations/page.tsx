@@ -8,7 +8,7 @@ import { PageIntro } from "@/components/ui/PageIntro";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
-import { listRegistrations, approveRegistration, rejectRegistration } from "@/lib/api/admin";
+import { listRegistrations, approveRegistration, rejectRegistration, getSpecialistCredential } from "@/lib/api/admin";
 import type { UserOut } from "@/lib/api/types";
 
 export default function AdminRegistrationsPage() {
@@ -48,6 +48,16 @@ export default function AdminRegistrationsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge tone="neutral">{u.status}</Badge>
+                  {u.role === "wellness_specialist" && (
+                    <Button type="button" variant="ghost" onClick={async () => {
+                      try {
+                        const { url } = await getSpecialistCredential(u.user_id);
+                        window.open(url, "_blank");
+                      } catch {
+                        alert("No credential on file.");
+                      }
+                    }}>View credential</Button>
+                  )}
                   <Button type="button" variant="dark" onClick={() => decide(u.user_id, "approve")}>Approve</Button>
                   <Button type="button" variant="ghost" onClick={() => decide(u.user_id, "reject")}>Reject</Button>
                 </div>

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
-import { listContent, createContent, updateContent, deleteContent, uploadContentMedia } from "@/lib/api/specialist";
+import { listContent, createContent, updateContent, deleteContent, uploadContentMedia, uploadCredential } from "@/lib/api/specialist";
 import type { ContentOut } from "@/lib/api/types";
 
 const FILTERS = ["All", "Draft", "Published"];
@@ -141,6 +141,25 @@ export default function ContentPage() {
             Write educational articles for your members. New content starts as a draft and stays
             private until you publish it — you must confirm you hold the rights before saving.
           </PageIntro>
+          <div className="mb-6 border border-border bg-white p-4">
+            <Label>Upload your certification (admin reviews this for approval)</Label>
+            <input
+              type="file"
+              accept=".pdf,image/*"
+              className="mt-2 text-[13px]"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                try {
+                  await uploadCredential(f);
+                  alert("Credential uploaded.");
+                } catch (e) {
+                  setErr(e instanceof Error ? e.message : "Credential upload failed.");
+                }
+              }}
+            />
+          </div>
+
           <div className="mb-[22px] flex items-center justify-between">
             <div className="flex gap-[10px]">
               {FILTERS.map((f) => (
