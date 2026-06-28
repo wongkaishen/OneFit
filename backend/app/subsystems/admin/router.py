@@ -193,6 +193,27 @@ async def set_user_role(user_id: uuid.UUID, body: RoleUpdate, admin: AdminDep, d
     return profile
 
 
+# --- C11: Per-user recent activity monitor ----------------------------------
+@router.get("/users/{user_id}/activity")
+async def user_activity(user_id: uuid.UUID, admin: AdminDep, db: DbDep):
+    """Per-user recent activity for the admin monitor (C11)."""
+    if await db.get(Profile, user_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    activity = (await db.execute(
+        select(ActivityLog).where(ActivityLog.user_id == user_id)
+        .order_by(ActivityLog.log_date.desc()).limit(10)
+    )).scalars().all()
+    diet = (await db.execute(
+        select(DietaryLog).where(DietaryLog.user_id == user_id)
+        .order_by(DietaryLog.log_date.desc()).limit(10)
+    )).scalars().all()
+    progress = (await db.execute(
+        select(ProgressEntry).where(ProgressEntry.user_id == user_id)
+        .order_by(ProgressEntry.recorded_at.desc()).limit(10)
+    )).scalars().all()
+    return {"recent_activity": activity, "recent_diet": diet, "recent_progress": progress}
+
+
 # --- UC6: System overview / dashboard stats ---------------------------------
 @router.get("/stats", response_model=AdminStats)
 async def stats(admin: AdminDep, db: DbDep):
