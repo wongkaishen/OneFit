@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
-import { listContent, createContent, updateContent } from "@/lib/api/specialist";
+import { listContent, createContent, updateContent, deleteContent } from "@/lib/api/specialist";
 import type { ContentOut } from "@/lib/api/types";
 
 const FILTERS = ["All", "Draft", "Published"];
@@ -91,6 +91,16 @@ export default function ContentPage() {
       setErr(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Permanently delete this content?")) return;
+    try {
+      await deleteContent(id);
+      setData((data ?? []).filter((c) => c.content_id !== id));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to delete");
     }
   };
 
@@ -206,6 +216,13 @@ export default function ContentPage() {
                       Restore
                     </button>
                   )}
+                  <button
+                    onClick={() => remove(p.content_id)}
+                    disabled={rowBusy === p.content_id}
+                    className="cursor-pointer border-b border-coral pb-[2px] font-sans text-[10px] font-bold uppercase tracking-label text-coral disabled:opacity-40"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}
