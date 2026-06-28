@@ -39,10 +39,14 @@ export default function GymPlansPage() {
 
   const acceptAi = async () => {
     if (!aiPlan) return;
-    const flat = aiPlan.days.flatMap((d) => d.exercises);
-    const plan = await acceptAiPlan(aiPlan.goal, flat);
-    setData((prev) => [plan, ...(prev ?? [])]);
-    setAiPlan(null);
+    const flat = (aiPlan.days ?? []).flatMap((d) => d.exercises ?? []);
+    try {
+      const plan = await acceptAiPlan(aiPlan.goal, flat);
+      setData((prev) => [plan, ...(prev ?? [])]);
+      setAiPlan(null);
+    } catch (e) {
+      setAiMsg(e instanceof ApiError ? e.message : "Couldn't save the plan. Try again.");
+    }
   };
 
   const saveEdit = async (id: string) => {
@@ -128,10 +132,10 @@ export default function GymPlansPage() {
           {aiPlan && (
             <div className="mt-4 border border-coral bg-white p-5">
               <Label>AI proposed plan — {aiPlan.goal}</Label>
-              {aiPlan.days.map((d, i) => (
+              {(aiPlan.days ?? []).map((d, i) => (
                 <div key={i} className="mt-3">
                   <div className="font-sans text-[13px] text-charcoal">{d.day} · {d.focus}</div>
-                  {d.exercises.map((e, j) => (
+                  {(d.exercises ?? []).map((e, j) => (
                     <div key={j} className="font-sans text-[12px] text-muted">
                       {e.name}{e.sets ? ` — ${e.sets}×${e.reps}` : ""}
                     </div>
