@@ -14,6 +14,7 @@ from app.subsystems.admin.router import router as admin_router
 from app.subsystems.ai_integration.router import router as ai_router
 from app.subsystems.auth.router import router as auth_router
 from app.subsystems.gym_user.router import router as gym_router
+from app.subsystems.messaging.router import router as messaging_router
 from app.subsystems.notifications.router import router as notifications_router
 from app.subsystems.wellness_specialist.router import router as specialist_router
 
@@ -70,6 +71,7 @@ async def health():
 # Platform Services
 app.include_router(auth_router)
 app.include_router(notifications_router)
+app.include_router(messaging_router)
 # Feature subsystems
 app.include_router(gym_router)
 app.include_router(specialist_router)

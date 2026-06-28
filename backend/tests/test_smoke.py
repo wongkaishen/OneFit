@@ -21,7 +21,8 @@ def test_openapi_lists_all_subsystems(client):
                      "/admin/users/{user_id}/activity",
                      "/gym/progress/photo", "/gym/plans/ai-accept",
                      "/specialist/community/groups",
-                     "/gym/community/groups"]:
+                     "/gym/community/groups",
+                     "/messages/threads"]:
         assert expected in paths
 
 
@@ -37,6 +38,7 @@ def test_openapi_lists_all_subsystems(client):
         ("get", "/specialist/content"),
         ("get", "/admin/users"),
         ("get", "/notifications"),
+        ("get", "/messages/threads"),
     ],
 )
 def test_protected_endpoints_reject_anonymous(client, method, path):
