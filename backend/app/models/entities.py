@@ -419,3 +419,19 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(Text)
     details: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+
+
+# --- Consultation messages (B15; table from 0013_messages.sql) --------------
+class Message(Base):
+    __tablename__ = "messages"
+
+    message_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    sender_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    recipient_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    body: Mapped[str] = mapped_column(Text)
+    read_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
