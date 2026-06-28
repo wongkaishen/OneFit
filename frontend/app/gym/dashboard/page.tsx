@@ -87,6 +87,21 @@ export default function GymDashboardPage() {
             </div>
           </div>
 
+          {dash.data && (
+            <div className="mt-6 flex gap-8 border border-border bg-white p-5">
+              <div>
+                <Label>Current streak</Label>
+                <div className="mt-1 font-serif text-[28px] text-charcoal">{dash.data.current_streak}d</div>
+              </div>
+              <div>
+                <Label>Active days this week</Label>
+                <div className="mt-1 font-serif text-[28px] text-charcoal">
+                  {dash.data.active_days_this_week}/{dash.data.weekly_goal}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="mt-7 grid grid-cols-2 gap-5">
             <div className="border border-border p-6">
               <Label>Active plan</Label>
