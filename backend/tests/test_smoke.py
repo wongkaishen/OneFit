@@ -16,7 +16,7 @@ def test_health(client):
 def test_openapi_lists_all_subsystems(client):
     paths = client.get("/openapi.json").json()["paths"]
     for expected in ["/auth/register", "/gym/profile", "/specialist/feedback",
-                     "/admin/users", "/ai/workout-plan"]:
+                     "/admin/users", "/ai/workout-plan", "/gym/plans/{plan_id}"]:
         assert expected in paths
 
 

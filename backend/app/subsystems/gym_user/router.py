@@ -58,6 +58,11 @@ class WorkoutPlanIn(BaseModel):
     goal: str
 
 
+class PlanUpdate(BaseModel):
+    goal: str | None = None
+    status: str | None = None  # 'active' | 'superseded'
+
+
 class ActivityLogIn(BaseModel):
     workout_type: str | None = None
     duration: int | None = Field(default=None, ge=0)          # minutes
@@ -149,6 +154,30 @@ async def create_plan(body: WorkoutPlanIn, user: GymUserDep, db: DbDep):
     await db.commit()
     await db.refresh(plan)
     return plan
+
+
+@router.patch("/plans/{plan_id}")
+async def update_plan(plan_id: uuid.UUID, body: PlanUpdate, user: GymUserDep, db: DbDep):
+    plan = await db.get(WorkoutPlan, plan_id)
+    if plan is None or plan.user_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout plan not found")
+    updates = body.model_dump(exclude_unset=True)
+    if "status" in updates and updates["status"] not in ("active", "superseded"):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid status")
+    for field, value in updates.items():
+        setattr(plan, field, value)
+    await db.commit()
+    await db.refresh(plan)
+    return plan
+
+
+@router.delete("/plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def discard_plan(plan_id: uuid.UUID, user: GymUserDep, db: DbDep):
+    plan = await db.get(WorkoutPlan, plan_id)
+    if plan is None or plan.user_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout plan not found")
+    await db.delete(plan)  # workout_sessions cascade via FK ondelete=CASCADE
+    await db.commit()
 
 
 # --- UC5: Log Daily Activity ------------------------------------------------
