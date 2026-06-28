@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, EB_Garamond } from "next/font/google";
 
 const inter = Inter({
@@ -18,8 +18,12 @@ const garamond = EB_Garamond({
 
 export const metadata: Metadata = {
   title: "OneFit",
-  description: "OneFit — Wellness Specialist & Admin",
+  description: "OneFit — digital wellness platform",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "OneFit", statusBarStyle: "default" },
 };
+
+export const viewport: Viewport = { themeColor: "#E5573F" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
