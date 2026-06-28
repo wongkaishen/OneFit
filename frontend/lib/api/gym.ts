@@ -1,5 +1,6 @@
 import { request, upload } from "./client";
 import type {
+  AIExercise,
   FitnessProfile, FitnessProfileIn,
   GymActivityIn, GymActivityLog,
   GymDashboard,
@@ -58,3 +59,7 @@ export const scheduleSession = (body: WorkoutSessionIn) =>
 // Progress photo upload
 export const uploadProgressPhoto = (file: File) =>
   upload<{ photo_url: string }>("/gym/progress/photo", file);
+
+// Accept AI-generated workout plan (A5)
+export const acceptAiPlan = (goal: string, exercises: AIExercise[]) =>
+  request<WorkoutPlan>("/gym/plans/ai-accept", { method: "POST", body: JSON.stringify({ goal, exercises }) });

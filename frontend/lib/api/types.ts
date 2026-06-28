@@ -363,3 +363,15 @@ export interface AdminUserActivity {
   recent_diet: DietaryLog[];
   recent_progress: ProgressEntry[];
 }
+
+export interface AIExercise {
+  name: string; sets?: number; reps?: number; rest_seconds?: number; notes?: string;
+}
+export interface AIPlanDay { day: string; focus: string; exercises: AIExercise[]; }
+export interface AIPlan { goal: string; days: AIPlanDay[]; }
+export interface NutritionInfo {
+  food: string; serving: string; calories: number; protein_g: number; carbs_g: number; fat_g: number;
+}
+export interface AITargets {
+  calories: number; protein_g: number; carbs_g: number; fat_g: number; weekly_sessions: number; rationale: string;
+}
