@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { logActivity } from "@/lib/api/gym";
+import { ApiError } from "@/lib/api/client";
 import { queueActivity, pendingCount, flushQueue, installAutoFlush, onQueueChange } from "@/lib/offlineQueue";
 
 function today(): string {
@@ -46,13 +47,21 @@ export default function GymActivityPage() {
       log_date: logDate,
     };
     try {
-      if (typeof navigator !== "undefined" && !navigator.onLine) throw new Error("offline");
-      await logActivity(payload);
-      setSaved("Activity logged.");
-      setWorkoutType(""); setDuration(""); setSteps(""); setHeartRate(""); setCalories("");
-    } catch {
-      queueActivity(payload);
-      setSaved("You're offline — saved locally and will sync when you reconnect.");
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        queueActivity(payload);
+        setSaved("You're offline — saved locally and will sync when you reconnect.");
+      } else {
+        await logActivity(payload);
+        setSaved("Activity logged.");
+        setWorkoutType(""); setDuration(""); setSteps(""); setHeartRate(""); setCalories("");
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status >= 400) {
+        setError(err.message);
+      } else {
+        queueActivity(payload);
+        setSaved("You're offline — saved locally and will sync when you reconnect.");
+      }
     } finally {
       setBusy(false);
     }

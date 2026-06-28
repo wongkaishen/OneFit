@@ -1,4 +1,5 @@
 import { logActivity } from "@/lib/api/gym";
+import { ApiError } from "@/lib/api/client";
 import type { GymActivityIn } from "@/lib/api/types";
 
 const KEY = "onefit-offline-activity";
@@ -40,8 +41,14 @@ export async function flushQueue(): Promise<number> {
         synced += 1;
         items = items.slice(1);
         write(items);
-      } catch {
-        break;                          // still offline — stop, keep the rest
+      } catch (e) {
+        if (e instanceof ApiError && e.status >= 400 && e.status < 500) {
+          // permanently rejected — drop it so it can't block the queue
+          items = items.slice(1);
+          write(items);
+          continue;
+        }
+        break;                          // network or 5xx — stop, keep the rest, retry later
       }
     }
   } finally {
