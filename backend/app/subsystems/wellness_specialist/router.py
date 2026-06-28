@@ -785,6 +785,48 @@ async def moderate_post(post_id: uuid.UUID, body: ModerateIn, user: SpecialistDe
     return post
 
 
+class GroupIn(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class CommunityPostIn(BaseModel):
+    content: str
+
+
+@router.post("/community/groups", status_code=status.HTTP_201_CREATED)
+async def create_group(body: GroupIn, user: SpecialistDep, db: DbDep):
+    """Create a community group owned by this specialist (B19)."""
+    if not body.name.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="name is required")
+    group = CommunityGroup(
+        group_id=uuid.uuid4(), name=body.name.strip(),
+        description=body.description, specialist_id=uuid.UUID(user.id),
+    )
+    db.add(group)
+    await db.commit()
+    await db.refresh(group)
+    return {"group_id": group.group_id, "name": group.name, "description": group.description}
+
+
+@router.post("/community/groups/{group_id}/posts", status_code=status.HTTP_201_CREATED)
+async def create_group_post(group_id: uuid.UUID, body: CommunityPostIn, user: SpecialistDep, db: DbDep):
+    """Specialist posts a community update to a group they own (B19)."""
+    group = await db.get(CommunityGroup, group_id)
+    if group is None or group.specialist_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    if not body.content.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="content is required")
+    post = CommunityPost(
+        post_id=uuid.uuid4(), group_id=group_id, author_id=uuid.UUID(user.id),
+        content=body.content.strip(), status="Posted",
+    )
+    db.add(post)
+    await db.commit()
+    await db.refresh(post)
+    return post
+
+
 # --- UC6: Review Health Trends to Improve Program ---------------------------
 class TrendIn(BaseModel):
     cohort: str = "all_gym_users"
