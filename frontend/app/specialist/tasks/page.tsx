@@ -70,7 +70,7 @@ export default function SpecialistTasksPage() {
             <Hairline className="mt-2" />
             {tasks.loading && <div className="py-6"><Label>Loading…</Label></div>}
             {tasks.error && <div className="py-6 text-[13px] text-coral">{tasks.error}</div>}
-            {!tasks.loading && (tasks.data ?? []).length === 0 && (
+            {!tasks.loading && !tasks.error && (tasks.data ?? []).length === 0 && (
               <EmptyState title="No tasks yet">Assign your first task above.</EmptyState>
             )}
             {(tasks.data ?? []).map((t) => (

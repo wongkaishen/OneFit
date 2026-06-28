@@ -95,7 +95,7 @@ Evidence paths are relative to repo root.
 | 8 | Suspend Membership | ✅ | `status = suspended`. |
 | 9 | Reinstate Suspended Membership | ✅ | `status = active`. |
 | 10 | Assign User Roles | ✅ | `PATCH /admin/users/{id}/role`. |
-| 11 | Monitor User Activity | ✅ | `GET /admin/users/{id}/activity` returns per-user activity log; `app/admin/users/[id]/page.tsx` renders it. Tasks 4/6/13. |
+| 11 | Monitor User Activity | ✅ | `GET /admin/users/{id}/activity` returns per-user activity log; `app/admin/users/page.tsx` renders it. Tasks 4/6/13. |
 | 12 | Remove Inactive Programs | ✅ | `GET /admin/programs`, `POST /admin/programs/{id}/remove`; `app/admin/programs/page.tsx`. Tasks 6/11. |
 | 13 | Send Announcements to Members | ✅ | `GET/POST /admin/announcements`, `app/admin/announcements/page.tsx`. |
 | 14 | Notify Members of Program Updates | ✅ | `POST /admin/notifications` sends targeted notifications; `app/admin/notifications/page.tsx` compose + send UI. Tasks 6/12. |

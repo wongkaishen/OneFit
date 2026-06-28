@@ -33,7 +33,7 @@ export default function AdminProgramsPage() {
           <Hairline className="mt-2" />
           {loading && <div className="py-6"><Label>Loading…</Label></div>}
           {error && <div className="py-6 text-[13px] text-coral">{error}</div>}
-          {!loading && (data ?? []).length === 0 && (
+          {!loading && !error && (data ?? []).length === 0 && (
             <EmptyState title="No inactive programs">Nothing to clean up.</EmptyState>
           )}
           {(data ?? []).map((p) => (
