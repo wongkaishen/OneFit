@@ -38,6 +38,7 @@ from app.models import (
 )
 from app.services.audit import record_audit
 from app.services.notification import notify
+from app.services.recommendations import recommend_from_trends
 
 router = APIRouter(prefix="/specialist", tags=["wellness_specialist"])
 
@@ -815,4 +816,18 @@ async def create_health_trend(body: TrendIn, user: SpecialistDep, db: DbDep):
     db.add(report)
     await db.commit()
     await db.refresh(report)
-    return report
+    recommendation = recommend_from_trends(
+        adherence, avg_calories, activity_consistency, milestone_rate
+    )
+    return {
+        "report_id": report.report_id,
+        "specialist_id": report.specialist_id,
+        "cohort": report.cohort,
+        "period": report.period,
+        "adherence": report.adherence,
+        "avg_calories": report.avg_calories,
+        "activity_consistency": report.activity_consistency,
+        "milestone_rate": report.milestone_rate,
+        "created_at": report.created_at,
+        "recommendation": recommendation,
+    }
