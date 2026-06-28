@@ -70,7 +70,7 @@ Evidence paths are relative to repo root.
 | 12 | Edit Educational Content | ✅ | `PATCH /specialist/content/{id}`. |
 | 13 | Remove Educational Content | ✅ | `DELETE /specialist/content/{id}` hard-delete endpoint added (Task 6); `app/specialist/content/page.tsx` includes delete action. |
 | 14 | Provide Professional Feedback | ✅ | `POST /specialist/feedback`. |
-| 15 | Consultation Support | ❌ | No consultation/messaging feature. |
+| 15 | Consultation Support | ✅ | `POST/GET /messages`, `GET /messages/threads`, `GET /messages/{partner_id}`; `app/gym/messages`, `app/specialist/messages`; "Message client" action on client detail. Active specialist_clients relationship enforced (403 otherwise). |
 | 16 | Feedback-Based Plan Recalculation | 🟡 | Endpoint `POST /ai/recalculate-targets` (key-gated) + `recalcTargets()` wrapper in `lib/api/ai.ts` exist, but **no UI control calls them** — no specialist page invokes `recalcTargets()`. |
 | 17 | Monitor Community Groups | ✅ | `GET /specialist/community/groups` + `GET .../groups/{id}/posts`; `app/specialist/community/page.tsx` lists all owned groups and their posts (B17). |
 | 18 | Moderate Community Posts | ✅ | `POST /specialist/community/posts/{id}/moderate` (remove/warn/escalate); moderation buttons wired in `app/specialist/community/page.tsx` (B18). |

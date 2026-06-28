@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { BarChart } from "@/components/ui/BarChart";
 import { useResource } from "@/lib/api/useResource";
 import { getClient, clientActivity, clientProgress, submitFeedback } from "@/lib/api/specialist";
+import { sendMessage } from "@/lib/api/messages";
 import { feedbackSummary } from "@/lib/api/ai";
 import { relativeTime } from "@/lib/format";
 import { ApiError } from "@/lib/api/client";
@@ -90,6 +91,10 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                 </div>
+                <Button type="button" variant="ghost" onClick={async () => {
+                  const text = prompt("Message to client:");
+                  if (text) { await sendMessage(id, text); alert("Message sent."); }
+                }}>Message client</Button>
               </div>
 
               <Hairline />
