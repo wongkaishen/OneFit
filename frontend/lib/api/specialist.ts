@@ -2,6 +2,7 @@ import { request } from "./client";
 import type {
   ActivityLog, ClientSummary, ContentIn, ContentOut, DietaryLog,
   FeedbackIn, MealPlanIn, MealPlanOut, MealPlanUpdate, ProgressEntry,
+  WellnessTaskOut, WellnessTaskIn,
 } from "./types";
 
 export const listClients = () => request<ClientSummary[]>("/specialist/clients");
@@ -44,6 +45,12 @@ export const updateContent = (id: string, body: ContentUpdate) =>
 
 export const submitFeedback = (body: FeedbackIn) =>
   request<unknown>("/specialist/feedback", { method: "POST", body: JSON.stringify(body) });
+
+export const listTasks = () => request<WellnessTaskOut[]>("/specialist/tasks");
+export const assignTask = (body: WellnessTaskIn) =>
+  request<WellnessTaskOut>("/specialist/tasks", { method: "POST", body: JSON.stringify(body) });
+export const deleteContent = (id: string) =>
+  request<void>(`/specialist/content/${id}`, { method: "DELETE" });
 
 export const sendSpecialistAnnouncement = (body: {
   title: string;

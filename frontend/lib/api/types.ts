@@ -332,3 +332,34 @@ export interface AnnouncementIn {
   body: string;
   target_audience: string;
 }
+
+export interface WellnessTaskOut {
+  task_id: string;
+  specialist_id: string;
+  target_id: string;
+  type: string;
+  description: string;
+  target_metric: string | null;
+  due_date: string;
+  status: string;
+}
+export interface WellnessTaskIn {
+  target_id: string;
+  type: string;
+  description: string;
+  target_metric?: string | null;
+  due_date: string;
+}
+export interface ProgramOut {
+  plan_id: string;
+  user_id: string;
+  goal: string;
+  status: string;
+  created_at: string;
+  last_activity_at: string | null;
+}
+export interface AdminUserActivity {
+  recent_activity: ActivityLog[];
+  recent_diet: DietaryLog[];
+  recent_progress: ProgressEntry[];
+}
