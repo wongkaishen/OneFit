@@ -1,11 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { PageIntro } from "@/components/ui/PageIntro";
-import { ApiError } from "@/lib/api/client";
 import { logActivity } from "@/lib/api/gym";
+import { queueActivity, pendingCount, flushQueue, installAutoFlush, onQueueChange } from "@/lib/offlineQueue";
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -21,6 +21,14 @@ export default function GymActivityPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [pending, setPending] = useState(0);
+
+  useEffect(() => {
+    setPending(pendingCount());
+    const off = onQueueChange(() => setPending(pendingCount()));
+    const uninstall = installAutoFlush();
+    return () => { off(); uninstall(); };
+  }, []);
 
   const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
@@ -29,19 +37,22 @@ export default function GymActivityPage() {
     setError(null);
     setSaved(null);
     setBusy(true);
+    const payload = {
+      workout_type: workoutType.trim() || null,
+      duration: num(duration),
+      steps: num(steps),
+      heart_rate: num(heartRate),
+      calories_burned: num(calories),
+      log_date: logDate,
+    };
     try {
-      await logActivity({
-        workout_type: workoutType.trim() || null,
-        duration: num(duration),
-        steps: num(steps),
-        heart_rate: num(heartRate),
-        calories_burned: num(calories),
-        log_date: logDate,
-      });
+      if (typeof navigator !== "undefined" && !navigator.onLine) throw new Error("offline");
+      await logActivity(payload);
       setSaved("Activity logged.");
       setWorkoutType(""); setDuration(""); setSteps(""); setHeartRate(""); setCalories("");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to log activity");
+    } catch {
+      queueActivity(payload);
+      setSaved("You're offline — saved locally and will sync when you reconnect.");
     } finally {
       setBusy(false);
     }
@@ -72,6 +83,12 @@ export default function GymActivityPage() {
             on the dashboard.
           </PageIntro>
           <Label>Daily activity</Label>
+          {pending > 0 && (
+            <div className="mb-4 flex items-center justify-between border border-border bg-cream p-3 text-[13px] text-charcoal">
+              <span>{pending} activity log(s) waiting to sync.</span>
+              <Button type="button" variant="ghost" onClick={() => flushQueue()}>Sync now</Button>
+            </div>
+          )}
           <form onSubmit={submit} className="mt-5 flex flex-col gap-5">
             {field("Workout type", workoutType, setWorkoutType, "text", "e.g. Running")}
             <div className="grid grid-cols-2 gap-5">
