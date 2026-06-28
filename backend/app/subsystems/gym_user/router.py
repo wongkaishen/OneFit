@@ -20,6 +20,8 @@ from app.core.security import CurrentUser, require_gym_user
 from app.services.milestones import check_and_award
 from app.services.calories import estimate_calories_burned
 from app.services.metrics import weekly_consistency
+from app.services.scheduling import suggest_alternative_slot
+from app.services.notification import notify
 from app.models import (
     ActivityLog,
     DietaryLog,
@@ -329,23 +331,24 @@ async def schedule_session(body: SessionIn, user: GymUserDep, db: DbDep):
     if plan is None or plan.user_id != uuid.UUID(user.id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout plan not found")
 
-    # UC9 conflict check: reject a slot already booked across the user's plans.
-    clash = (
+    # UC9 / A31 conflict check: gather all booked times on that date.
+    booked_times = (
         await db.execute(
-            select(WorkoutSession.session_id)
+            select(WorkoutSession.scheduled_time)
             .join(WorkoutPlan, WorkoutPlan.plan_id == WorkoutSession.plan_id)
             .where(
                 WorkoutPlan.user_id == uuid.UUID(user.id),
                 WorkoutSession.scheduled_date == body.scheduled_date,
-                WorkoutSession.scheduled_time == body.scheduled_time,
                 WorkoutSession.status == "scheduled",
             )
         )
-    ).first()
-    if clash is not None:
+    ).scalars().all()
+    if body.scheduled_time in set(booked_times):
+        alt = suggest_alternative_slot(body.scheduled_time, set(booked_times))
+        hint = f" Next free slot that day is {alt.strftime('%H:%M')}." if alt else ""
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="That time slot conflicts with an existing scheduled session",
+            detail=f"That time slot conflicts with an existing scheduled session.{hint}",
         )
 
     session = WorkoutSession(
@@ -357,6 +360,17 @@ async def schedule_session(body: SessionIn, user: GymUserDep, db: DbDep):
         status="scheduled",
     )
     db.add(session)
+    # A32: queue a workout reminder for the user (same transaction).
+    if body.reminder_set:
+        await notify(
+            db,
+            recipient_id=uuid.UUID(user.id),
+            type="workout_reminder",
+            title="Workout reminder set",
+            body=f"You scheduled a workout on {body.scheduled_date} at {body.scheduled_time.strftime('%H:%M')}.",
+            ref_type="workout_session",
+            ref_id=session.session_id,
+        )
     await db.commit()
     await db.refresh(session)
     return session
