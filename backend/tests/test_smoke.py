@@ -43,12 +43,11 @@ def test_protected_endpoints_reject_anonymous(client, method, path):
     assert resp.status_code in (401, 403)
 
 
-def test_ai_workout_plan_is_deferred(client):
-    # AI subsystem is on the future roadmap -> 501, no auth/DB needed.
-    resp = client.post("/ai/workout-plan", json={"user_id": "x", "goal": "muscle"})
-    assert resp.status_code == 501
+def test_ai_workout_plan_requires_auth(client):
+    resp = client.post("/ai/workout-plan", json={"goal": "muscle"})
+    assert resp.status_code in (401, 403)
 
 
-def test_ai_nutrition_search_is_deferred(client):
+def test_ai_nutrition_search_requires_auth(client):
     resp = client.get("/ai/nutrition/search", params={"q": "banana"})
-    assert resp.status_code == 501
+    assert resp.status_code in (401, 403)
