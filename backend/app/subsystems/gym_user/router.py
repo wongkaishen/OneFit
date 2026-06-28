@@ -10,12 +10,13 @@ import datetime as dt
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.services.storage import PUBLIC_BUCKET, public_url, safe_object_path, upload_object
 from app.core.security import CurrentUser, require_gym_user
 from app.services.milestones import check_and_award
 from app.services.calories import estimate_calories_burned
@@ -289,6 +290,20 @@ async def add_progress(body: ProgressEntryIn, user: GymUserDep, db: DbDep):
     await db.refresh(entry)
     # AI-driven plan-recalculation prompt on a significant change is deferred.
     return entry
+
+
+@router.post("/progress/photo")
+async def upload_progress_photo(user: GymUserDep, db: DbDep, file: UploadFile = File(...)):
+    """Upload a progress photo to the public bucket; returns its URL (A24).
+
+    The returned `photo_url` is then sent with POST /gym/progress.
+    """
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Max 5 MB")
+    path = safe_object_path("progress", user.id, file.filename or "photo.jpg")
+    await upload_object(PUBLIC_BUCKET, path, content, file.content_type or "image/jpeg")
+    return {"photo_url": public_url(PUBLIC_BUCKET, path)}
 
 
 # --- Meal plans assigned by a wellness specialist ---------------------------

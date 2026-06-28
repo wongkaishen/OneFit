@@ -18,7 +18,8 @@ def test_openapi_lists_all_subsystems(client):
     for expected in ["/auth/register", "/gym/profile", "/specialist/feedback",
                      "/admin/users", "/ai/workout-plan", "/gym/plans/{plan_id}",
                      "/specialist/content/{content_id}",
-                     "/admin/users/{user_id}/activity"]:
+                     "/admin/users/{user_id}/activity",
+                     "/gym/progress/photo"]:
         assert expected in paths
 
 
