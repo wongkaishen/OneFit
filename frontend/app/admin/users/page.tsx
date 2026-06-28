@@ -8,9 +8,9 @@ import { Chip } from "@/components/ui/Chip";
 import { Badge } from "@/components/ui/Badge";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
-import { listUsers, setUserStatus } from "@/lib/api/admin";
+import { listUsers, setUserStatus, getUserActivity } from "@/lib/api/admin";
 import { shortDate } from "@/lib/format";
-import type { UserOut } from "@/lib/api/types";
+import type { UserOut, AdminUserActivity } from "@/lib/api/types";
 
 const ROLE_FILTERS = ["All roles", "Members", "Specialists", "Admins"];
 const STATUS_FILTERS = ["All statuses", "Pending", "Active", "Suspended"];
@@ -48,6 +48,14 @@ export default function UserManagementPage() {
   const [sel, setSel] = useState<string[]>([]);
   const [menu, setMenu] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [activity, setActivity] = useState<AdminUserActivity | null>(null);
+
+  const view = async (id: string) => {
+    if (openId === id) { setOpenId(null); return; }
+    setOpenId(id); setActivity(null);
+    try { setActivity(await getUserActivity(id)); } catch { setActivity(null); }
+  };
 
   const users = useMemo(() => {
     let list = data ?? [];
@@ -167,7 +175,14 @@ export default function UserManagementPage() {
                 <span className="font-sans text-[13px] text-subtle">{u.role}</span>
                 <span className="font-sans text-[13px] text-muted">{shortDate(u.created_at)}</span>
                 <span><Badge tone={statusTone(u.status)}>{u.status}</Badge></span>
-                <span className="font-sans text-[13px] text-muted">—</span>
+                <span className="flex items-center gap-2 font-sans text-[13px] text-muted">
+                  <button
+                    onClick={() => view(u.user_id)}
+                    className="rounded border border-border px-2 py-0.5 font-sans text-[11px] font-semibold uppercase tracking-label text-subtle transition hover:border-charcoal hover:text-charcoal"
+                  >
+                    {openId === u.user_id ? "Close" : "Activity"}
+                  </button>
+                </span>
                 <span
                   onClick={() => setMenu(menu === u.user_id ? null : u.user_id)}
                   className="cursor-pointer text-center text-[18px] tracking-widest text-subtle"
@@ -175,6 +190,18 @@ export default function UserManagementPage() {
                   ⋯
                 </span>
               </div>
+              {openId === u.user_id && (
+                <div className="border border-border bg-cream px-4 py-3 text-[13px] text-charcoal">
+                  {!activity && <Label>Loading…</Label>}
+                  {activity && (
+                    <>
+                      <div>Recent activity logs: {activity.recent_activity.length}</div>
+                      <div>Recent diet logs: {activity.recent_diet.length}</div>
+                      <div>Recent progress entries: {activity.recent_progress.length}</div>
+                    </>
+                  )}
+                </div>
+              )}
               {menu === u.user_id && (
                 <div className="absolute right-2 top-[50px] z-20 min-w-[150px] border border-border bg-cream">
                   {menuActions(u.status).map(([label, value]) => (
