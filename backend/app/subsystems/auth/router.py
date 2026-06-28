@@ -27,6 +27,22 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+TokenDep = Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)]
+
+
+async def _gotrue_auth(method: str, path: str, token: str, payload: dict | None = None) -> dict:
+    """Call a GoTrue endpoint as the authenticated user (Bearer token)."""
+    async with httpx.AsyncClient(base_url=settings.gotrue_url, timeout=15) as client:
+        resp = await client.request(
+            method, path, json=payload,
+            headers={"apikey": settings.supabase_anon_key, "Authorization": f"Bearer {token}",
+                     "Content-Type": "application/json"},
+        )
+    if resp.status_code >= 400:
+        detail = resp.json().get("msg") or resp.json().get("error_description") or resp.text
+        raise HTTPException(status_code=resp.status_code, detail=detail)
+    return resp.json()
+
 
 RegisterRole = Literal["gym_user", "wellness_specialist"]
 
@@ -152,3 +168,31 @@ async def login(body: LoginRequest, request: Request, db: Annotated[AsyncSession
 async def me(user: Annotated[CurrentUser, Depends(get_current_user)]) -> CurrentUser:
     """Return the authenticated caller's profile."""
     return user
+
+
+@router.post("/mfa/enroll")
+async def mfa_enroll(creds: TokenDep):
+    """Enroll a TOTP factor for the current user (C3). Returns a QR + secret."""
+    data = await _gotrue_auth("POST", "/factors", creds.credentials, {"factor_type": "totp"})
+    totp = data.get("totp", {})
+    return {
+        "factor_id": data.get("id"),
+        "qr_code": totp.get("qr_code"),
+        "secret": totp.get("secret"),
+        "uri": totp.get("uri"),
+    }
+
+
+class MfaVerifyRequest(BaseModel):
+    factor_id: str
+    code: str
+
+
+@router.post("/mfa/verify")
+async def mfa_verify(body: MfaVerifyRequest, creds: TokenDep):
+    """Challenge + verify a TOTP code; returns elevated (AAL2) tokens (C3)."""
+    challenge = await _gotrue_auth("POST", f"/factors/{body.factor_id}/challenge", creds.credentials)
+    return await _gotrue_auth(
+        "POST", f"/factors/{body.factor_id}/verify", creds.credentials,
+        {"challenge_id": challenge.get("id"), "code": body.code},
+    )
