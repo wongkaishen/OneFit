@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
@@ -11,9 +12,11 @@ import { ApiError } from "@/lib/api/client";
 import { listProgress, addProgress, listMilestones, uploadProgressPhoto } from "@/lib/api/gym";
 import { relativeTime, shortDate } from "@/lib/format";
 import { BarChart } from "@/components/ui/BarChart";
+import { renderShareGraphic } from "@/lib/shareGraphic";
 import type { GymProgressEntry, GymMilestone } from "@/lib/api/types";
 
 export default function GymProgressPage() {
+  const router = useRouter();
   const progress = useResource<GymProgressEntry[]>(listProgress, []);
   const milestones = useResource<GymMilestone[]>(listMilestones, []);
 
@@ -82,6 +85,38 @@ export default function GymProgressPage() {
     return lines.join("\n");
   };
 
+  const latestWeightLabel = (): string => {
+    const latest = (progress.data ?? [])[0];
+    if (!latest) return "No data yet";
+    const parts: string[] = [];
+    if (latest.weight != null) parts.push(`${latest.weight} kg`);
+    if (latest.body_fat_percent != null) parts.push(`${latest.body_fat_percent}% bf`);
+    return parts.length ? parts.join(" · ") : "Check-in logged";
+  };
+
+  const trendLabel = (): string => {
+    const entries = progress.data ?? [];
+    const latest = entries[0];
+    const prev = entries[1];
+    if (!latest || !prev || latest.weight == null || prev.weight == null) return "OneFit progress";
+    const delta = Number((latest.weight - prev.weight).toFixed(1));
+    if (delta === 0) return "No change since last check-in";
+    return `${delta > 0 ? "+" : ""}${delta} kg since last check-in`;
+  };
+
+  const shareToCommunity = () => {
+    const text = buildSummary();
+    if (!text) { setShared("Add a progress entry first, then you can share it."); return; }
+    router.push(`/gym/community?share=${encodeURIComponent(text)}`);
+  };
+
+  const downloadGraphic = () => {
+    const url = renderShareGraphic({ line1: latestWeightLabel(), line2: trendLabel() });
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url; a.download = "onefit-progress.png"; a.click();
+  };
+
   // Prefer the native share sheet (mobile); fall back to clipboard, then to display.
   const share = async () => {
     const text = buildSummary();
@@ -148,6 +183,8 @@ export default function GymProgressPage() {
               {busy ? "Saving…" : "Add entry"}
             </Button>
             <Button type="button" variant="ghost" onClick={share}>Share latest</Button>
+            <Button type="button" variant="dark" onClick={shareToCommunity}>Share to community</Button>
+            <Button type="button" variant="ghost" onClick={downloadGraphic}>Download graphic</Button>
           </form>
           {error && <div className="mt-2 text-[13px] text-coral">{error}</div>}
           {shared && <div className="mt-2 text-[13px] text-good">{shared}</div>}
