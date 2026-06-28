@@ -11,6 +11,7 @@ const GYM_NAV: NavItem[] = [
   { label: "Feedback", href: "/gym/feedback" },
   { label: "Calendar", href: "/gym/calendar" },
   { label: "Community", href: "/gym/community" },
+  { label: "Messages", href: "/gym/messages" },
   { label: "Notifications", href: "/gym/notifications" },
   { label: "Profile", href: "/gym/profile" },
 ];
