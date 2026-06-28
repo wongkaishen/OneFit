@@ -16,6 +16,13 @@ export default function LoginPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const oauth = () => {
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!base) { setError("OAuth is not configured."); return; }
+    const redirect = `${window.location.origin}/auth/callback`;
+    window.location.href = `${base}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirect)}`;
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -88,6 +95,7 @@ export default function LoginPage() {
           <Button type="submit" variant="dark" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
           </Button>
+          <Button type="button" variant="ghost" onClick={oauth}>Continue with Google</Button>
         </form>
 
         <p className="mt-6 text-[13px] text-muted">
