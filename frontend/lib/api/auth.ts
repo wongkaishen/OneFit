@@ -1,5 +1,5 @@
 import { request } from "./client";
-import type { AuthTokens, CurrentUser, RegisterIn } from "./types";
+import type { AuthTokens, CurrentUser, MfaEnrollOut, RegisterIn } from "./types";
 
 export const login = (email: string, password: string) =>
   request<AuthTokens>("/auth/login", {
@@ -14,3 +14,7 @@ export const register = (body: RegisterIn) =>
   });
 
 export const me = () => request<CurrentUser>("/auth/me");
+
+export const mfaEnroll = () => request<MfaEnrollOut>("/auth/mfa/enroll", { method: "POST" });
+export const mfaVerify = (factorId: string, code: string) =>
+  request<AuthTokens>("/auth/mfa/verify", { method: "POST", body: JSON.stringify({ factor_id: factorId, code }) });

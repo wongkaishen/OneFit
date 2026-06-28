@@ -1,5 +1,5 @@
 import { request } from "./client";
-import type { AdminStats, AnnouncementIn, AnnouncementOut, AuditEntry, UserOut, ProgramOut, AdminUserActivity } from "./types";
+import type { AdminStats, AnnouncementIn, AnnouncementOut, AuditEntry, LoginEventOut, UserOut, ProgramOut, AdminUserActivity } from "./types";
 
 export const listUsers = () => request<UserOut[]>("/admin/users");
 export const setUserStatus = (id: string, status: string) =>
@@ -41,3 +41,6 @@ export const getUserActivity = (id: string) =>
 
 export const getSpecialistCredential = (id: string) =>
   request<{ url: string }>(`/admin/specialists/${id}/credential`);
+
+export const listLoginEvents = (failuresOnly = false, hours = 24) =>
+  request<LoginEventOut[]>(`/admin/login-events?failures_only=${failuresOnly}&hours=${hours}`);

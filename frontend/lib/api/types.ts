@@ -390,3 +390,9 @@ export interface MessageThread {
   partner_id: string; partner_name: string | null;
   last_body: string; last_at: string; unread: number;
 }
+
+export interface MfaEnrollOut { factor_id: string; qr_code: string; secret: string; uri: string; }
+export interface LoginEventOut {
+  event_id: string; email: string; success: boolean;
+  ip: string | null; user_agent: string | null; created_at: string; suspicious: boolean;
+}
