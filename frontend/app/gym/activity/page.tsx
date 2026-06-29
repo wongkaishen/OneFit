@@ -99,13 +99,22 @@ export default function GymActivityPage() {
             </div>
           )}
           <form onSubmit={submit} className="mt-5 flex flex-col gap-5">
-            {field("Workout type", workoutType, setWorkoutType, "text", "e.g. Running")}
+            {field("Workout type", workoutType, setWorkoutType, "text", "e.g. Running, Cycling, Weights, Yoga")}
             <div className="grid grid-cols-2 gap-5">
               {field("Duration (min)", duration, setDuration)}
-              {field("Steps", steps, setSteps)}
+              <div className="flex flex-col gap-2">
+                {field("Steps (if applicable)", steps, setSteps, "number", "Leave blank for non-step workouts")}
+                <span className="font-sans text-[11px] text-muted">
+                  Only for step-based activities like walking or running.
+                </span>
+              </div>
               {field("Heart rate (bpm)", heartRate, setHeartRate)}
               {field("Calories burned", calories, setCalories)}
             </div>
+            <span className="font-sans text-[11px] text-muted">
+              All fields are optional — fill in only what applies to this workout. Leave “Calories
+              burned” blank and we’ll estimate it from the type and duration.
+            </span>
             {field("Date", logDate, setLogDate, "date")}
 
             {error && <div className="text-[13px] text-coral">{error}</div>}

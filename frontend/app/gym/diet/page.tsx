@@ -39,6 +39,11 @@ export default function GymDietPage() {
     setSearchMsg(null); setSearching(true);
     try {
       const n = await searchNutrition(foodQuery.trim());
+      // Reject non-food inputs (e.g. "truck") so we don't log a 0-calorie meal.
+      if (n.is_food === false || !n.food?.trim() || !(n.calories > 0)) {
+        setSearchMsg(`“${foodQuery.trim()}” doesn’t look like a valid food item. Please enter a real food.`);
+        return;
+      }
       // pre-fill the existing diet form fields:
       setFoodItem(n.food); setCalories(String(n.calories));
       setProtein(String(n.protein_g)); setCarbs(String(n.carbs_g)); setFat(String(n.fat_g));
@@ -53,8 +58,12 @@ export default function GymDietPage() {
     e.preventDefault();
     setError(null);
     setSaved(null);
-    if (calories.trim() === "") {
-      setError("Calories are required.");
+    if (foodItem.trim() === "") {
+      setError("Failed to log meal. Please enter a valid food item.");
+      return;
+    }
+    if (calories.trim() === "" || !(Number(calories) > 0)) {
+      setError("Failed to log meal. Enter the calories for this food (must be greater than 0).");
       return;
     }
     setBusy(true);

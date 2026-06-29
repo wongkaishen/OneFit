@@ -27,8 +27,13 @@ export default function GymCommunityPage() {
 
   const post = async () => {
     if (!active || !text.trim()) return;
-    const p = await gymCreatePost(active, text.trim());
-    setPosts((prev) => [p, ...prev]); setText("");
+    setPostsError(null);
+    try {
+      const p = await gymCreatePost(active, text.trim());
+      setPosts((prev) => [p, ...prev]); setText("");
+    } catch {
+      setPostsError("Couldn't post — please try again.");
+    }
   };
 
   return (

@@ -49,6 +49,8 @@ export const submitFeedback = (body: FeedbackIn) =>
 export const listTasks = () => request<WellnessTaskOut[]>("/specialist/tasks");
 export const assignTask = (body: WellnessTaskIn) =>
   request<WellnessTaskOut>("/specialist/tasks", { method: "POST", body: JSON.stringify(body) });
+export const deleteTask = (id: string) =>
+  request<void>(`/specialist/tasks/${id}`, { method: "DELETE" });
 export const deleteContent = (id: string) =>
   request<void>(`/specialist/content/${id}`, { method: "DELETE" });
 
@@ -97,6 +99,8 @@ export const uploadCredential = (file: File) =>
 export const listGroups = () => request<CommunityGroup[]>("/specialist/community/groups");
 export const createGroup = (name: string, description?: string) =>
   request<CommunityGroup>("/specialist/community/groups", { method: "POST", body: JSON.stringify({ name, description }) });
+export const deleteGroup = (id: string) =>
+  request<void>(`/specialist/community/groups/${id}`, { method: "DELETE" });
 export const listGroupPosts = (id: string) =>
   request<CommunityPost[]>(`/specialist/community/groups/${id}/posts`);
 export const createGroupPost = (id: string, content: string) =>

@@ -1,4 +1,5 @@
 "use client";
+import { useMemo, useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
@@ -22,10 +23,22 @@ export default function AdminDashboardPage() {
   const stats = useResource<AdminStats>(getStats, []);
   const audit = useResource<AuditEntry[]>(getAuditLog, []);
   const s = stats.data;
+  const [query, setQuery] = useState("");
+
+  const auditItems = useMemo(() => {
+    const list = audit.data ?? [];
+    const q = query.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((e) =>
+      [e.actor_name, e.action, e.details]
+        .filter(Boolean)
+        .some((v) => (v as string).toLowerCase().includes(q)),
+    );
+  }, [audit.data, query]);
 
   return (
     <>
-      <TopBar title="Dashboard" search="Search" avatarLetter="S" />
+      <TopBar title="Dashboard" search="Search recent activity" avatarLetter="S" searchValue={query} onSearch={setQuery} />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
           <PageIntro>
@@ -58,10 +71,10 @@ export default function AdminDashboardPage() {
             <Hairline />
             {audit.loading && <div className="py-6"><Label>Loading…</Label></div>}
             {audit.error && <div className="py-6 text-[13px] text-coral">{audit.error}</div>}
-            {!audit.loading && (audit.data ?? []).length === 0 && (
-              <div className="py-6"><Label>No recent activity</Label></div>
+            {!audit.loading && auditItems.length === 0 && (
+              <div className="py-6"><Label>{query ? "No matching activity" : "No recent activity"}</Label></div>
             )}
-            {(audit.data ?? []).map((e) => (
+            {auditItems.map((e) => (
               <div key={e.log_id}>
                 <div className="flex items-center justify-between py-[15px]">
                   <div className="flex items-center gap-[14px]">

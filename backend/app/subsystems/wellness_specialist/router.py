@@ -12,7 +12,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -295,8 +295,14 @@ async def announce(body: AnnounceIn, user: SpecialistDep, db: DbDep):
     if body.audience == "gym_users":
         stmt = stmt.where(Profile.role == "gym_user")
     recipients = (await db.execute(stmt)).scalars().all()
+    author = user.name or "Your wellness specialist"
+    # Attribute the announcement so recipients can see who posted it.
+    body_with_author = f"{body.body}\n\n— {author}" if body.body.strip() else f"— {author}"
     for rid in recipients:
-        await notify(db, recipient_id=rid, type="announcement", title=body.title, body=body.body)
+        await notify(
+            db, recipient_id=rid, type="announcement",
+            title=body.title, body=body_with_author,
+        )
     await db.commit()
     return {"sent": len(recipients), "audience": body.audience}
 
@@ -685,6 +691,16 @@ async def assign_task(body: WellnessTaskIn, user: SpecialistDep, db: DbDep):
     return task
 
 
+@router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_task(task_id: uuid.UUID, user: SpecialistDep, db: DbDep):
+    """Delete a wellness task the specialist assigned (owner only)."""
+    task = await db.get(WellnessTask, task_id)
+    if task is None or task.specialist_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    await db.delete(task)
+    await db.commit()
+
+
 # --- UC5: Monitor Gym User Wellness Community Groups -------------------------
 class ModerateIn(BaseModel):
     # "remove" | "warn" | "escalate"
@@ -797,16 +813,46 @@ class CommunityPostIn(BaseModel):
 @router.post("/community/groups", status_code=status.HTTP_201_CREATED)
 async def create_group(body: GroupIn, user: SpecialistDep, db: DbDep):
     """Create a community group owned by this specialist (B19)."""
-    if not body.name.strip():
+    name = body.name.strip()
+    if not name:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="name is required")
+    # Reject a duplicate name (case-insensitive) for this specialist's groups.
+    existing = (
+        await db.execute(
+            select(CommunityGroup).where(
+                CommunityGroup.specialist_id == uuid.UUID(user.id),
+                func.lower(CommunityGroup.name) == name.lower(),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You already have a group with that name.",
+        )
     group = CommunityGroup(
-        group_id=uuid.uuid4(), name=body.name.strip(),
+        group_id=uuid.uuid4(), name=name,
         description=body.description, specialist_id=uuid.UUID(user.id),
     )
     db.add(group)
     await db.commit()
     await db.refresh(group)
     return {"group_id": group.group_id, "name": group.name, "description": group.description}
+
+
+@router.delete("/community/groups/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_group(group_id: uuid.UUID, user: SpecialistDep, db: DbDep):
+    """Delete a community group and its posts (owner only)."""
+    group = await db.get(CommunityGroup, group_id)
+    if group is None or group.specialist_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    # Remove posts first in case the FK isn't ON DELETE CASCADE.
+    await db.execute(
+        text("delete from public.community_posts where group_id = :gid"),
+        {"gid": str(group_id)},
+    )
+    await db.delete(group)
+    await db.commit()
 
 
 @router.post("/community/groups/{group_id}/posts", status_code=status.HTTP_201_CREATED)

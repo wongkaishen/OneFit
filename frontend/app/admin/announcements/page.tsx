@@ -12,7 +12,11 @@ import { relativeTime } from "@/lib/format";
 import type { AnnouncementOut } from "@/lib/api/types";
 
 // Values must match VALID_AUDIENCE in backend/app/subsystems/admin/router.py
-const AUDIENCES = ["all", "gym_users", "specialists"];
+const AUDIENCES: { value: string; label: string }[] = [
+  { value: "all", label: "Everyone (all roles)" },
+  { value: "gym_users", label: "Gym members only" },
+  { value: "specialists", label: "Specialists only" },
+];
 
 export default function AnnouncementsPage() {
   const { data, error, loading, setData } = useResource<AnnouncementOut[]>(listAnnouncements, []);
@@ -62,7 +66,7 @@ export default function AnnouncementsPage() {
               <select value={form.target_audience}
                 onChange={(e) => setForm({ ...form, target_audience: e.target.value })}
                 className="h-[34px] border border-border bg-white px-2 font-sans text-[12px]">
-                {AUDIENCES.map((a) => <option key={a} value={a}>{a}</option>)}
+                {AUDIENCES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
               </select>
               <Button size="sm" onClick={submit} disabled={busy}>{busy ? "Sending…" : "Send announcement"}</Button>
             </div>
@@ -81,6 +85,7 @@ export default function AnnouncementsPage() {
                 <div>
                   <div className="font-sans text-[14px] font-semibold text-charcoal">{a.title}</div>
                   <div className="mt-1 font-sans text-[12px] text-muted">{a.body}</div>
+                  <div className="mt-1 font-sans text-[11px] text-subtle">By {a.admin_name ?? "Admin"}</div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Badge tone="neutral">{a.target_audience}</Badge>

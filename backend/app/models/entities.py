@@ -18,6 +18,7 @@ from sqlalchemy import (
     String,
     Text,
     Time,
+    func,
 )
 from sqlalchemy.dialects.postgresql import ENUM, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -71,7 +72,7 @@ class Profile(Base):
     email: Mapped[str] = mapped_column(Text, unique=True)
     role: Mapped[str] = mapped_column(user_role_enum, default="gym_user")
     status: Mapped[str] = mapped_column(account_status_enum, default="pending")
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- 3.2.2 GymUser ----------------------------------------------------------
@@ -135,7 +136,7 @@ class WorkoutPlan(Base):
     goal: Mapped[str] = mapped_column(Text)
     generated_by: Mapped[str] = mapped_column(String, default="manual")  # text column, not an enum
     status: Mapped[str] = mapped_column(plan_status_enum, default="active")
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- Exercises (SDS data-design summary p.45; no §3.2.x dictionary entry) ----
@@ -155,7 +156,7 @@ class Exercise(Base):
     rest_seconds: Mapped[int | None] = mapped_column(Integer)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
     notes: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- 3.2.7 WorkoutSession ---------------------------------------------------
@@ -220,7 +221,7 @@ class ProgressEntry(Base):
     body_fat_percent: Mapped[float | None] = mapped_column(Numeric(5, 2))
     height: Mapped[float | None] = mapped_column(Numeric(5, 2))
     photo_url: Mapped[str | None] = mapped_column(Text)
-    recorded_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    recorded_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- 3.2.11 Milestone -------------------------------------------------------
@@ -233,7 +234,7 @@ class Milestone(Base):
     )
     type: Mapped[str] = mapped_column(Text)
     badge: Mapped[str | None] = mapped_column(Text)
-    achieved_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    achieved_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- 3.2.12 WellnessTask ----------------------------------------------------
@@ -267,7 +268,7 @@ class EducationalContent(Base):
     visibility: Mapped[bool] = mapped_column(Boolean, default=True)
     status: Mapped[str] = mapped_column(content_status_enum, default="Draft")
     permission_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- 3.2.14 Feedback --------------------------------------------------------
@@ -283,7 +284,7 @@ class Feedback(Base):
     )
     notes: Mapped[str] = mapped_column(Text)
     plan_updated: Mapped[bool] = mapped_column(Boolean, default=False)
-    submitted_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    submitted_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- 3.2.15 CommunityGroup --------------------------------------------------
@@ -302,7 +303,9 @@ class CommunityGroup(Base):
 class CommunityPost(Base):
     __tablename__ = "community_posts"
 
-    post_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     group_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("community_groups.group_id", ondelete="CASCADE")
     )
@@ -312,7 +315,7 @@ class CommunityPost(Base):
     content: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(post_status_enum, default="Posted")
     severity: Mapped[str | None] = mapped_column(post_severity_enum)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- 3.2.17 Notification ----------------------------------------------------
@@ -333,7 +336,7 @@ class Notification(Base):
     ref_type: Mapped[str | None] = mapped_column(Text)
     ref_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     status: Mapped[str] = mapped_column(notification_status_enum, default="unread")
-    sent_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    sent_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- 3.2.18 Announcement ----------------------------------------------------
@@ -365,7 +368,7 @@ class HealthTrendReport(Base):
     avg_calories: Mapped[float | None] = mapped_column(Numeric(7, 2))
     activity_consistency: Mapped[float | None] = mapped_column(Numeric(5, 2))
     milestone_rate: Mapped[float | None] = mapped_column(Numeric(5, 2))
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- MealPlan (specialist-authored, 0004 migration) -------------------------
@@ -384,7 +387,7 @@ class MealPlan(Base):
     days_per_week: Mapped[int] = mapped_column(Integer, default=7)
     payload: Mapped[list | dict] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(meal_plan_status_enum, default="draft")
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- SpecialistClient relationship (0007 migration) -------------------------
@@ -405,7 +408,7 @@ class SpecialistClient(Base):
         primary_key=True,
     )
     status: Mapped[str] = mapped_column(specialist_client_status_enum, default="active")
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- 3.2.20 AuditLog --------------------------------------------------------
@@ -418,7 +421,7 @@ class AuditLog(Base):
     )
     action: Mapped[str] = mapped_column(Text)
     details: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- Consultation messages (B15; table from 0013_messages.sql) --------------
@@ -434,7 +437,7 @@ class Message(Base):
     )
     body: Mapped[str] = mapped_column(Text)
     read_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # --- Login attempt audit (C16; table from 0014_login_events.sql) ------------
@@ -447,4 +450,4 @@ class LoginEvent(Base):
     success: Mapped[bool] = mapped_column(Boolean)
     ip: Mapped[str | None] = mapped_column(Text)
     user_agent: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -63,6 +63,18 @@ export default function GymCalendarPage() {
     `${a.scheduled_date}T${a.scheduled_time}`.localeCompare(`${b.scheduled_date}T${b.scheduled_time}`),
   );
 
+  // A scheduled session whose date+time has already passed is shown as "Late".
+  const displayStatus = (s: WorkoutSession): { label: string; tone: "good" | "neutral" | "flag" } => {
+    if (s.status === "scheduled") {
+      const when = new Date(`${s.scheduled_date}T${s.scheduled_time}`);
+      if (!Number.isNaN(when.getTime()) && when.getTime() < Date.now()) {
+        return { label: "Late", tone: "flag" };
+      }
+      return { label: "scheduled", tone: "good" };
+    }
+    return { label: s.status, tone: "neutral" };
+  };
+
   return (
     <>
       <TopBar title="Calendar" search="Search" avatarLetter="G" />
@@ -129,7 +141,7 @@ export default function GymCalendarPage() {
                   <span className="font-sans text-[14px] text-charcoal">
                     {s.scheduled_date} · {s.scheduled_time.slice(0, 5)}
                   </span>
-                  <Badge tone={s.status === "scheduled" ? "good" : "neutral"}>{s.status}</Badge>
+                  {(() => { const d = displayStatus(s); return <Badge tone={d.tone}>{d.label}</Badge>; })()}
                 </div>
                 <Hairline />
               </div>

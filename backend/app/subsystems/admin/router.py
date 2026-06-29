@@ -113,6 +113,7 @@ class AnnouncementOut(BaseModel):
 
     announcement_id: uuid.UUID
     admin_id: uuid.UUID
+    admin_name: str | None = None
     title: str
     body: str
     target_audience: str
@@ -281,13 +282,29 @@ async def audit_log(admin: AdminDep, db: DbDep, limit: int = 20):
 # --- UC8: Announcements -----------------------------------------------------
 @router.get("/announcements", response_model=list[AnnouncementOut])
 async def list_announcements(admin: AdminDep, db: DbDep):
-    result = await db.execute(
-        select(Announcement).order_by(
-            Announcement.sent_at.desc().nullslast(),
-            Announcement.announcement_id.desc(),
+    rows = (
+        await db.execute(
+            select(Announcement, Profile.name)
+            .outerjoin(Profile, Profile.id == Announcement.admin_id)
+            .order_by(
+                Announcement.sent_at.desc().nullslast(),
+                Announcement.announcement_id.desc(),
+            )
         )
-    )
-    return result.scalars().all()
+    ).all()
+    return [
+        AnnouncementOut(
+            announcement_id=a.announcement_id,
+            admin_id=a.admin_id,
+            admin_name=name,
+            title=a.title,
+            body=a.body,
+            target_audience=a.target_audience,
+            status=a.status,
+            sent_at=a.sent_at,
+        )
+        for a, name in rows
+    ]
 
 
 @router.post("/announcements", status_code=status.HTTP_201_CREATED, response_model=AnnouncementOut)
@@ -319,13 +336,16 @@ async def create_announcement(body: AnnouncementIn, admin: AdminDep, db: DbDep):
     elif body.target_audience == "specialists":
         audience_stmt = audience_stmt.where(Profile.role == "wellness_specialist")
     recipients = (await db.execute(audience_stmt)).scalars().all()
+    author = admin.name or "OneFit Admin"
+    # Attribute the announcement so recipients can see who posted it.
+    body_with_author = f"{body.body}\n\n— {author}" if body.body.strip() else f"— {author}"
     for rid in recipients:
         await notify(
             db,
             recipient_id=rid,
             type="announcement",
             title=body.title,
-            body=body.body,
+            body=body_with_author,
             ref_type="announcement",
             ref_id=ann.announcement_id,
         )
@@ -338,7 +358,16 @@ async def create_announcement(body: AnnouncementIn, admin: AdminDep, db: DbDep):
     )
     await db.commit()
     await db.refresh(ann)
-    return ann
+    return AnnouncementOut(
+        announcement_id=ann.announcement_id,
+        admin_id=ann.admin_id,
+        admin_name=admin.name,
+        title=ann.title,
+        body=ann.body,
+        target_audience=ann.target_audience,
+        status=ann.status,
+        sent_at=ann.sent_at,
+    )
 
 
 # --- UC4: Approve Member Registration ---------------------------------------

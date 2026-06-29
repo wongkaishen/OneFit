@@ -9,8 +9,8 @@ import { ApiError } from "@/lib/api/client";
 import { sendSpecialistAnnouncement } from "@/lib/api/specialist";
 
 const AUDIENCES = [
-  { value: "gym_users", label: "All members" },
-  { value: "all", label: "Everyone" },
+  { value: "gym_users", label: "Gym members only" },
+  { value: "all", label: "Everyone (members + specialists)" },
 ] as const;
 
 export default function SpecialistAnnouncePage() {

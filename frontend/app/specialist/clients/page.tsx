@@ -123,10 +123,14 @@ export default function ClientListPage() {
           )}
           {addErr && <div className="mb-3 font-sans text-[13px] text-coral">{addErr}</div>}
 
-          <div className="mb-[18px] flex gap-[10px]">
+          <div className="mb-2 flex gap-[10px]">
             {FILTERS.map((f) => (
               <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>
             ))}
+          </div>
+          <div className="mb-[18px] font-sans text-[11px] text-muted">
+            “At risk” / the Alerts column flags clients who haven’t logged any activity for 5+ days,
+            so you know who to check in on.
           </div>
 
           <div

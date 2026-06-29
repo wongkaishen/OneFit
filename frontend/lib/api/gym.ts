@@ -2,6 +2,7 @@ import { request, upload } from "./client";
 import type {
   AIExercise,
   CommunityGroup, CommunityPost,
+  Exercise,
   FitnessProfile, FitnessProfileIn,
   GymActivityIn, GymActivityLog,
   GymDashboard,
@@ -27,6 +28,8 @@ export const updatePlan = (id: string, body: { goal?: string; status?: string })
   request<WorkoutPlan>(`/gym/plans/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const discardPlan = (id: string) =>
   request<void>(`/gym/plans/${id}`, { method: "DELETE" });
+export const listPlanExercises = (id: string) =>
+  request<Exercise[]>(`/gym/plans/${id}/exercises`);
 
 // Activity logging
 export const logActivity = (body: GymActivityIn) =>

@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Hairline } from "@/components/ui/Hairline";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { useResource } from "@/lib/api/useResource";
-import { listGroups, createGroup, listGroupPosts, createGroupPost, moderatePost } from "@/lib/api/specialist";
+import { ApiError } from "@/lib/api/client";
+import { listGroups, createGroup, deleteGroup, listGroupPosts, createGroupPost, moderatePost } from "@/lib/api/specialist";
 import type { CommunityGroup, CommunityPost } from "@/lib/api/types";
 
 export default function SpecialistCommunityPage() {
@@ -17,6 +18,7 @@ export default function SpecialistCommunityPage() {
   const [postsError, setPostsError] = useState<string | null>(null);
   const [newGroup, setNewGroup] = useState("");
   const [newPost, setNewPost] = useState("");
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -26,17 +28,43 @@ export default function SpecialistCommunityPage() {
 
   const addGroup = async () => {
     if (!newGroup.trim()) return;
-    const g = await createGroup(newGroup.trim());
-    groups.setData((prev) => [...(prev ?? []), g]); setNewGroup("");
+    setErr(null);
+    try {
+      const g = await createGroup(newGroup.trim());
+      groups.setData((prev) => [...(prev ?? []), g]); setNewGroup("");
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Failed to create group.");
+    }
+  };
+  const removeGroup = async (id: string) => {
+    if (!confirm("Delete this group and all its posts?")) return;
+    setErr(null);
+    try {
+      await deleteGroup(id);
+      groups.setData((prev) => (prev ?? []).filter((g) => g.group_id !== id));
+      if (active === id) { setActive(null); setPosts([]); }
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Failed to delete group.");
+    }
   };
   const addPost = async () => {
     if (!active || !newPost.trim()) return;
-    const p = await createGroupPost(active, newPost.trim());
-    setPosts((prev) => [p, ...prev]); setNewPost("");
+    setErr(null);
+    try {
+      const p = await createGroupPost(active, newPost.trim());
+      setPosts((prev) => [p, ...prev]); setNewPost("");
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Failed to post.");
+    }
   };
   const moderate = async (id: string, action: "remove" | "warn" | "escalate") => {
-    const updated = await moderatePost(id, action, action === "escalate" ? "high" : "low");
-    setPosts((prev) => prev.map((p) => (p.post_id === id ? updated : p)));
+    setErr(null);
+    try {
+      const updated = await moderatePost(id, action, action === "escalate" ? "high" : "low");
+      setPosts((prev) => prev.map((p) => (p.post_id === id ? updated : p)));
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Moderation action failed.");
+    }
   };
 
   return (
@@ -51,11 +79,23 @@ export default function SpecialistCommunityPage() {
               className="h-[42px] flex-1 border border-border px-3 text-[14px] outline-none focus:border-charcoal" />
             <Button type="button" variant="dark" onClick={addGroup}>Create group</Button>
           </div>
+          {err && <div className="mb-3 text-[13px] text-coral">{err}</div>}
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {(groups.data ?? []).map((g) => (
-              <Button key={g.group_id} type="button" variant={active === g.group_id ? "dark" : "ghost"}
-                onClick={() => setActive(g.group_id)}>{g.name}</Button>
+              <div key={g.group_id} className="flex items-center gap-1">
+                <Button type="button" variant={active === g.group_id ? "dark" : "ghost"}
+                  onClick={() => setActive(g.group_id)}>{g.name}</Button>
+                <button
+                  type="button"
+                  onClick={() => removeGroup(g.group_id)}
+                  className="px-1 font-sans text-[14px] leading-none text-muted hover:text-coral"
+                  aria-label={`Delete group ${g.name}`}
+                  title="Delete group"
+                >
+                  ×
+                </button>
+              </div>
             ))}
           </div>
 

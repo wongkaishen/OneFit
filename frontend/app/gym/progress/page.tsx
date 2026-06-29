@@ -117,6 +117,27 @@ export default function GymProgressPage() {
     a.href = url; a.download = "onefit-progress.png"; a.click();
   };
 
+  // Download a badge for ANY past check-in (not just the latest). `idx` is the
+  // index in the newest-first history list, so the previous entry is idx+1.
+  const downloadBadgeFor = (entry: GymProgressEntry, idx: number) => {
+    const parts: string[] = [];
+    if (entry.weight != null) parts.push(`${entry.weight} kg`);
+    if (entry.body_fat_percent != null) parts.push(`${entry.body_fat_percent}% bf`);
+    const line1 = parts.length ? parts.join(" · ") : "Check-in logged";
+
+    const entries = progress.data ?? [];
+    const prev = entries[idx + 1];
+    let line2 = `Recorded ${shortDate(entry.recorded_at)}`;
+    if (prev && entry.weight != null && prev.weight != null) {
+      const delta = Number((entry.weight - prev.weight).toFixed(1));
+      if (delta !== 0) line2 = `${delta > 0 ? "+" : ""}${delta} kg vs previous check-in`;
+    }
+    const url = renderShareGraphic({ line1, line2 });
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url; a.download = `onefit-progress-${shortDate(entry.recorded_at)}.png`; a.click();
+  };
+
   // Prefer the native share sheet (mobile); fall back to clipboard, then to display.
   const share = async () => {
     const text = buildSummary();
@@ -193,7 +214,10 @@ export default function GymProgressPage() {
             <div className="mt-6 border border-border bg-white p-5">
               <Label>Weight trend</Label>
               <div className="mt-4">
-                <BarChart data={weightSeries} />
+                <BarChart data={weightSeries} scaleFromMin />
+              </div>
+              <div className="mt-2 font-sans text-[11px] text-muted">
+                Bars are scaled to your weight range so small changes are easy to see.
               </div>
             </div>
           )}
@@ -207,14 +231,23 @@ export default function GymProgressPage() {
               {!progress.loading && (progress.data ?? []).length === 0 && (
                 <div className="py-6"><Label>No entries yet</Label></div>
               )}
-              {(progress.data ?? []).map((p) => (
+              {(progress.data ?? []).map((p, idx) => (
                 <div key={p.progress_id}>
                   <div className="flex items-center justify-between py-3">
                     <span className="font-sans text-[14px] text-charcoal">
                       {p.weight != null ? `${p.weight} kg` : "—"}
                       {p.body_fat_percent != null ? ` · ${p.body_fat_percent}% bf` : ""}
                     </span>
-                    <Label>{relativeTime(p.recorded_at)}</Label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => downloadBadgeFor(p, idx)}
+                        className="font-sans text-[10px] font-bold uppercase tracking-label text-coral hover:underline"
+                      >
+                        Badge
+                      </button>
+                      <Label>{relativeTime(p.recorded_at)}</Label>
+                    </div>
                   </div>
                   <Hairline />
                 </div>

@@ -9,11 +9,11 @@ import { PageIntro } from "@/components/ui/PageIntro";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
-import { listPlans, createPlan, listMealPlans, updatePlan, discardPlan, acceptAiPlan } from "@/lib/api/gym";
+import { listPlans, createPlan, listMealPlans, updatePlan, discardPlan, acceptAiPlan, listPlanExercises } from "@/lib/api/gym";
 import { generateWorkoutPlan } from "@/lib/api/ai";
 import { shortDate } from "@/lib/format";
 import { MealPlanCard } from "@/components/MealPlanCard";
-import type { WorkoutPlan, MealPlanOut, AIPlan } from "@/lib/api/types";
+import type { WorkoutPlan, MealPlanOut, AIPlan, Exercise } from "@/lib/api/types";
 
 export default function GymPlansPage() {
   const { data, error, loading, setData } = useResource<WorkoutPlan[]>(listPlans, []);
@@ -28,6 +28,27 @@ export default function GymPlansPage() {
   const [aiPlan, setAiPlan] = useState<AIPlan | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState<string | null>(null);
+
+  // Expandable per-plan exercise detail (loaded on demand, cached by plan id).
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [exercises, setExercises] = useState<Record<string, Exercise[]>>({});
+  const [exLoading, setExLoading] = useState(false);
+
+  const toggleDetails = async (id: string) => {
+    if (openId === id) { setOpenId(null); return; }
+    setOpenId(id);
+    if (!exercises[id]) {
+      setExLoading(true);
+      try {
+        const list = await listPlanExercises(id);
+        setExercises((prev) => ({ ...prev, [id]: list }));
+      } catch {
+        setExercises((prev) => ({ ...prev, [id]: [] }));
+      } finally {
+        setExLoading(false);
+      }
+    }
+  };
 
   const generate = async () => {
     if (!goal.trim()) return;
@@ -186,12 +207,35 @@ export default function GymPlansPage() {
                       </>
                     ) : (
                       <>
+                        <Button type="button" variant="ghost" onClick={() => toggleDetails(p.plan_id)}>
+                          {openId === p.plan_id ? "Hide details" : "View details"}
+                        </Button>
                         <Button type="button" variant="ghost" onClick={() => { setEditingId(p.plan_id); setEditGoal(p.goal); }}>Edit</Button>
                         <Button type="button" variant="ghost" onClick={() => discard(p.plan_id)}>Discard</Button>
                       </>
                     )}
                   </div>
                 </div>
+                {openId === p.plan_id && (
+                  <div className="mb-4 border border-border bg-white p-5">
+                    {exLoading && !exercises[p.plan_id] && <Label>Loading…</Label>}
+                    {exercises[p.plan_id] && exercises[p.plan_id].length === 0 && (
+                      <div className="font-sans text-[13px] text-muted">
+                        No exercise breakdown saved for this plan. The goal is “{p.goal}”.
+                      </div>
+                    )}
+                    {(exercises[p.plan_id] ?? []).map((ex) => (
+                      <div key={ex.exercise_id} className="flex items-baseline justify-between py-1">
+                        <span className="font-sans text-[13px] text-charcoal">{ex.name}</span>
+                        <span className="font-sans text-[12px] text-muted">
+                          {ex.sets != null && ex.reps != null ? `${ex.sets}×${ex.reps}` : ""}
+                          {ex.rest_seconds != null ? ` · ${ex.rest_seconds}s rest` : ""}
+                          {ex.notes ? ` · ${ex.notes}` : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <Hairline />
               </div>
             ))}

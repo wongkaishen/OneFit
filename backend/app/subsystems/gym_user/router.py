@@ -185,6 +185,7 @@ async def accept_ai_plan(body: AIPlanAcceptIn, user: GymUserDep, db: DbDep):
         created_at=_now(),
     )
     db.add(plan)
+    await db.flush()  # ensure the workout_plans row exists before its exercises reference it
     for i, ex in enumerate(body.exercises):
         db.add(Exercise(
             exercise_id=uuid.uuid4(),
@@ -217,6 +218,20 @@ async def update_plan(plan_id: uuid.UUID, body: PlanUpdate, user: GymUserDep, db
     await db.commit()
     await db.refresh(plan)
     return plan
+
+
+@router.get("/plans/{plan_id}/exercises")
+async def list_plan_exercises(plan_id: uuid.UUID, user: GymUserDep, db: DbDep):
+    """Full per-exercise breakdown for one of the caller's plans (UC3 detail view)."""
+    plan = await db.get(WorkoutPlan, plan_id)
+    if plan is None or plan.user_id != uuid.UUID(user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout plan not found")
+    result = await db.execute(
+        select(Exercise)
+        .where(Exercise.plan_id == plan_id)
+        .order_by(Exercise.order_index)
+    )
+    return result.scalars().all()
 
 
 @router.delete("/plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -255,9 +270,23 @@ async def log_activity(body: ActivityLogIn, user: GymUserDep, db: DbDep):
 
 
 # --- UC6: Log Dietary Intake ------------------------------------------------
+VALID_MEAL_TIMES = {"breakfast", "lunch", "dinner", "snack"}
+
+
 @router.post("/diet", status_code=status.HTTP_201_CREATED)
 async def log_diet(body: DietaryLogIn, user: GymUserDep, db: DbDep):
-    log = DietaryLog(log_id=uuid.uuid4(), user_id=uuid.UUID(user.id), **body.model_dump())
+    data = body.model_dump()
+    # The DB meal_time enum is lowercase; normalize the client's label (e.g.
+    # "Breakfast" -> "breakfast") and reject anything outside the allowed set.
+    if data.get("meal_time"):
+        meal = str(data["meal_time"]).strip().lower()
+        if meal not in VALID_MEAL_TIMES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"meal_time must be one of {sorted(VALID_MEAL_TIMES)}",
+            )
+        data["meal_time"] = meal
+    log = DietaryLog(log_id=uuid.uuid4(), user_id=uuid.UUID(user.id), **data)
     db.add(log)
     await check_and_award(db, uuid.UUID(user.id))
     await db.commit()

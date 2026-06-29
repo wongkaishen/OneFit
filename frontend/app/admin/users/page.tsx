@@ -45,6 +45,7 @@ export default function UserManagementPage() {
   const { data, error, loading, setData } = useResource<UserOut[]>(listUsers, []);
   const [role, setRole] = useState("All roles");
   const [statusFilter, setStatusFilter] = useState("All statuses");
+  const [query, setQuery] = useState("");
   const [sel, setSel] = useState<string[]>([]);
   const [menu, setMenu] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
@@ -62,8 +63,13 @@ export default function UserManagementPage() {
     if (role !== "All roles") list = list.filter((u) => u.role === roleMatch[role]);
     if (statusFilter !== "All statuses")
       list = list.filter((u) => u.status.toLowerCase() === statusMatch[statusFilter]);
+    const q = query.trim().toLowerCase();
+    if (q)
+      list = list.filter(
+        (u) => (u.name ?? "").toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
+      );
     return list;
-  }, [data, role, statusFilter]);
+  }, [data, role, statusFilter, query]);
 
   const pendingCount = useMemo(
     () => (data ?? []).filter((u) => u.status.toLowerCase() === "pending").length,
@@ -91,7 +97,7 @@ export default function UserManagementPage() {
 
   return (
     <>
-      <TopBar title="User management" search="Search users" avatarLetter="S" />
+      <TopBar title="User management" search="Search name or email" avatarLetter="S" searchValue={query} onSearch={setQuery} />
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
           <PageIntro>

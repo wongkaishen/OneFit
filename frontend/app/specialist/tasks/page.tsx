@@ -9,7 +9,7 @@ import { PageIntro } from "@/components/ui/PageIntro";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
-import { listClients, listTasks, assignTask } from "@/lib/api/specialist";
+import { listClients, listTasks, assignTask, deleteTask } from "@/lib/api/specialist";
 import { shortDate } from "@/lib/format";
 import type { ClientSummary, WellnessTaskOut } from "@/lib/api/types";
 
@@ -22,6 +22,21 @@ export default function SpecialistTasksPage() {
   const [dueDate, setDueDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this task?")) return;
+    setErr(null);
+    setRowBusy(id);
+    try {
+      await deleteTask(id);
+      tasks.setData((prev) => (prev ?? []).filter((t) => t.task_id !== id));
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : "Failed to delete task");
+    } finally {
+      setRowBusy(null);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +95,17 @@ export default function SpecialistTasksPage() {
                     <div className="font-sans text-[14px] text-charcoal">{t.type} — {t.description}</div>
                     <div className="mt-1 font-sans text-[11px] text-muted">Due {shortDate(t.due_date)}</div>
                   </div>
-                  <Badge tone="neutral">{t.status}</Badge>
+                  <div className="flex items-center gap-3">
+                    <Badge tone="neutral">{t.status}</Badge>
+                    <button
+                      type="button"
+                      onClick={() => remove(t.task_id)}
+                      disabled={rowBusy === t.task_id}
+                      className="font-sans text-[10px] font-bold uppercase tracking-label text-coral hover:underline disabled:opacity-40"
+                    >
+                      {rowBusy === t.task_id ? "…" : "Delete"}
+                    </button>
+                  </div>
                 </div>
                 <Hairline />
               </div>

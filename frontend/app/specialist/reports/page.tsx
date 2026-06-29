@@ -52,8 +52,9 @@ export default function ReportsPage() {
       <main className="flex-1 overflow-auto">
         <div className="px-9 py-[30px]">
           <PageIntro>
-            Aggregated, anonymized trends across your roster — use them to spot patterns and refine
-            your programs. No individual client is identified here.
+            Aggregated, anonymized trends across your <b>whole roster</b> — use them to spot patterns
+            and refine your programs. These are cohort-level figures, so they can’t be filtered to a
+            single client; open a client’s profile for individual data.
           </PageIntro>
           <div className="mb-6 flex items-center justify-between">
             <Label>Roster health trends</Label>
@@ -64,6 +65,10 @@ export default function ReportsPage() {
             >
               {generating ? "Generating…" : "Generate trend report"}
             </Button>
+          </div>
+          <div className="mb-4 font-sans text-[12px] text-muted">
+            The recommendation below is <b>AI-generated</b> from your roster’s aggregate metrics —
+            review it before acting on it.
           </div>
 
           {genError && (
@@ -88,6 +93,9 @@ export default function ReportsPage() {
             <div className="mt-6 grid gap-0" style={{ gridTemplateColumns: "1.3fr 1fr" }}>
               <div className="border-r border-border pr-8">
                 <Label>Clients by goal</Label>
+                <div className="font-sans text-[11px] text-muted">
+                  How many of your clients are working toward each fitness goal.
+                </div>
                 <div className="mt-4"><BarChart data={goalData} height={160} highlightLast={false} /></div>
               </div>
               <div className="pl-8">

@@ -320,6 +320,7 @@ export interface AuditEntry {
 export interface AnnouncementOut {
   announcement_id: string;
   admin_id: string;
+  admin_name?: string | null;
   title: string;
   body: string;
   target_audience: string;
@@ -370,7 +371,14 @@ export interface AIExercise {
 export interface AIPlanDay { day: string; focus: string; exercises: AIExercise[]; }
 export interface AIPlan { goal: string; days: AIPlanDay[]; }
 export interface NutritionInfo {
+  is_food?: boolean;
   food: string; serving: string; calories: number; protein_g: number; carbs_g: number; fat_g: number;
+}
+
+export interface Exercise {
+  exercise_id: string; plan_id: string; name: string;
+  sets: number | null; reps: number | null; rest_seconds: number | null;
+  order_index: number; notes: string | null; created_at: string;
 }
 export interface AITargets {
   calories: number; protein_g: number; carbs_g: number; fat_g: number; weekly_sessions: number; rationale: string;

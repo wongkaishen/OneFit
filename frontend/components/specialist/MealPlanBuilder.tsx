@@ -72,11 +72,18 @@ export function MealPlanBuilder({ initialPlan }: { initialPlan?: MealPlanOut }) 
 
   const addItem = (meal: string) => {
     const nameInput = window.prompt("Food name?");
-    if (!nameInput) return;
-    const kcalInput = Number(window.prompt("Calories?") ?? "0");
+    if (!nameInput || !nameInput.trim()) return;
+    const raw = window.prompt("Calories? (numbers only)");
+    if (raw === null) return; // cancelled
+    const kcalInput = Number(raw.trim());
+    // Reject non-numeric / negative input instead of silently storing 0.
+    if (raw.trim() === "" || !Number.isFinite(kcalInput) || kcalInput < 0) {
+      window.alert("Please enter a valid number of calories (0 or more).");
+      return;
+    }
     setPlan((p) => ({
       ...p,
-      [day]: { ...p[day], [meal]: [...p[day][meal], { name: nameInput, kcal: kcalInput || 0 }] },
+      [day]: { ...p[day], [meal]: [...p[day][meal], { name: nameInput.trim(), kcal: kcalInput }] },
     }));
   };
 

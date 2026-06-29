@@ -63,10 +63,12 @@ async def search_nutrition(query: str) -> dict:
         {
             "role": "system",
             "content": (
-                "You are a nutrition database. For the food described, return JSON "
-                '{"food": str, "serving": str, "calories": number, "protein_g": number, '
-                '"carbs_g": number, "fat_g": number}. Estimate a typical serving. '
-                "Return only JSON."
+                "You are a nutrition lookup service for edible food and drink only. "
+                'For the input, return JSON {"is_food": bool, "food": str, "serving": str, '
+                '"calories": number, "protein_g": number, "carbs_g": number, "fat_g": number}. '
+                "If the input is NOT an edible food or drink (e.g. an object, vehicle, or "
+                'nonsense like "truck"), set is_food=false and all numbers to 0. '
+                "Otherwise set is_food=true and estimate a typical serving. Return only JSON."
             ),
         },
         {"role": "user", "content": f"Food: {query}"},
