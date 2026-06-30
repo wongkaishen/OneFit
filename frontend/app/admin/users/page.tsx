@@ -9,7 +9,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { useResource } from "@/lib/api/useResource";
-import { listUsers, setUserStatus, getUserActivity } from "@/lib/api/admin";
+import { listUsers, setUserStatus, setUserRole, getUserActivity } from "@/lib/api/admin";
 import { shortDate } from "@/lib/format";
 import type { UserOut, AdminUserActivity } from "@/lib/api/types";
 
@@ -25,6 +25,18 @@ const statusMatch: Record<string, string> = {
   Active: "active",
   Suspended: "suspended",
 };
+// Role value -> human label, and the options offered in the row editor.
+const ROLE_LABEL: Record<string, string> = {
+  gym_user: "Member",
+  wellness_specialist: "Specialist",
+  admin: "Admin",
+};
+const ROLE_OPTIONS: [string, string][] = [
+  ["gym_user", "Member"],
+  ["wellness_specialist", "Specialist"],
+  ["admin", "Admin"],
+];
+
 function statusTone(status: string): "good" | "flag" | "neutral" {
   const s = status.toLowerCase();
   if (s === "active") return "good";
@@ -49,6 +61,7 @@ export default function UserManagementPage() {
   const [query, setQuery] = useState("");
   const [sel, setSel] = useState<string[]>([]);
   const [menu, setMenu] = useState<string | null>(null);
+  const [roleMenu, setRoleMenu] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [activity, setActivity] = useState<AdminUserActivity | null>(null);
@@ -89,6 +102,21 @@ export default function UserManagementPage() {
       setActionErr(e instanceof Error ? e.message : "Action failed");
     }
     setMenu(null);
+  };
+
+  const changeRole = async (u: UserOut, role: string) => {
+    setRoleMenu(null);
+    if (role === u.role) return;
+    if (!window.confirm(
+      `Change ${u.name ?? u.email} from ${ROLE_LABEL[u.role] ?? u.role} to ${ROLE_LABEL[role] ?? role}?`
+    )) return;
+    setActionErr(null);
+    try {
+      const updated = await setUserRole(u.user_id, role);
+      setData((prev) => (prev ?? []).map((x) => (x.user_id === u.user_id ? updated : x)));
+    } catch (e) {
+      setActionErr(e instanceof Error ? e.message : "Couldn't change role");
+    }
   };
 
   const bulk = async (status: string) => {
@@ -179,7 +207,30 @@ export default function UserManagementPage() {
                   <Avatar letter={(u.name ?? u.email)[0]?.toUpperCase() ?? "?"} />
                   <span className="font-sans text-[14px] text-charcoal">{u.name ?? u.email}</span>
                 </div>
-                <span className="font-sans text-[13px] text-subtle">{u.role}</span>
+                <span className="relative font-sans text-[13px] text-subtle">
+                  <button
+                    type="button"
+                    onClick={() => setRoleMenu(roleMenu === u.user_id ? null : u.user_id)}
+                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-[13px] text-charcoal transition hover:border-charcoal"
+                  >
+                    {ROLE_LABEL[u.role] ?? u.role}
+                    <span className="text-[9px] text-muted">▾</span>
+                  </button>
+                  {roleMenu === u.user_id && (
+                    <div className="absolute left-0 top-[28px] z-30 min-w-[140px] border border-border bg-cream">
+                      {ROLE_OPTIONS.map(([value, label]) => (
+                        <div
+                          key={value}
+                          onClick={() => changeRole(u, value)}
+                          className="cursor-pointer border-b border-border px-3 py-2 text-[13px] last:border-b-0"
+                          style={{ color: value === u.role ? "var(--muted)" : "var(--charcoal)" }}
+                        >
+                          {label}{value === u.role ? " ✓" : ""}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </span>
                 <span className="font-sans text-[13px] text-muted">{shortDate(u.created_at)}</span>
                 <span><Badge tone={statusTone(u.status)}>{u.status}</Badge></span>
                 <span className="flex items-center gap-2 font-sans text-[13px] text-muted">

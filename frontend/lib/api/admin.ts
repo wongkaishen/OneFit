@@ -2,7 +2,7 @@ import { request } from "./client";
 import type {
   AdminStats, AnnouncementIn, AnnouncementOut, AuditEntry, LoginEventOut, UserOut,
   ProgramOut, AdminUserActivity, AdminCommunityGroup, AdminCommunityPost,
-  AdminPlanOut, AdminPlanDetail,
+  AdminPlanOut, AdminPlanDetail, ReportOut,
 } from "./types";
 
 export const listUsers = () => request<UserOut[]>("/admin/users");
@@ -36,8 +36,9 @@ export const removeProgram = (id: string) =>
   request<{ plan_id: string; status: string; sessions_detached: number }>(
     `/admin/programs/${id}/remove`, { method: "POST" });
 
+// Direct message to a single user. Broadcasts go through Announcements.
 export const sendNotification = (body: {
-  message: string; audience: string; user_id?: string; title?: string;
+  message: string; user_id: string; title?: string;
 }) => request<unknown>("/admin/notifications", { method: "POST", body: JSON.stringify(body) });
 
 export const getUserActivity = (id: string) =>
@@ -61,6 +62,18 @@ export const adminUpdatePost = (postId: string, body: { content?: string; status
 export const adminDeletePost = (postId: string) =>
   request<{ deleted: boolean; post_id: string }>(`/admin/community/posts/${postId}`, {
     method: "DELETE",
+  });
+
+// --- Reports queue (issue #3 P1) ---
+export const adminListReports = (statusFilter = "open") =>
+  request<ReportOut[]>(`/admin/reports?status_filter=${statusFilter}`);
+export const adminResolveReport = (
+  reportId: string,
+  action: "dismiss" | "remove_post" | "suspend_user",
+  note?: string,
+) =>
+  request<ReportOut>(`/admin/reports/${reportId}/resolve`, {
+    method: "POST", body: JSON.stringify({ action, note }),
   });
 
 // --- Program/plan management ---

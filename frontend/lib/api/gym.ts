@@ -1,7 +1,11 @@
 import { request, upload } from "./client";
 import type {
   AIExercise,
-  CommunityGroup, CommunityPost,
+  CommunityPost,
+  GroupSummary, GroupChatMessage,
+  EducationalContentOut,
+  FeedPost, ReportIn,
+  MemberOut, FriendOut, FriendRequests,
   Exercise,
   FitnessProfile, FitnessProfileIn,
   GymActivityIn, GymActivityLog,
@@ -68,8 +72,50 @@ export const uploadProgressPhoto = (file: File) =>
 export const acceptAiPlan = (goal: string, exercises: AIExercise[]) =>
   request<WorkoutPlan>("/gym/plans/ai-accept", { method: "POST", body: JSON.stringify({ goal, exercises }) });
 
-// Community (A28)
-export const gymListGroups = () => request<CommunityGroup[]>("/gym/community/groups");
+// Educational content library (published content from any specialist)
+export const gymListContent = (category?: string) =>
+  request<EducationalContentOut[]>(
+    `/gym/content${category ? `?category=${encodeURIComponent(category)}` : ""}`,
+  );
+
+// Social feed (issue #3 P1)
+export const gymListFeed = () => request<FeedPost[]>("/gym/feed");
+export const gymCreateFeedPost = (content: string, image_url?: string | null) =>
+  request<FeedPost>("/gym/feed", { method: "POST", body: JSON.stringify({ content, image_url }) });
+export const gymUploadFeedPhoto = (file: File) =>
+  upload<{ image_url: string }>("/gym/feed/photo", file);
+export const gymReport = (body: ReportIn) =>
+  request<{ report_id: string; status: string }>("/gym/reports", {
+    method: "POST", body: JSON.stringify(body),
+  });
+
+// Members directory + friends (issue #3 P2)
+export const gymListMembers = (query?: string) =>
+  request<MemberOut[]>(`/gym/members${query ? `?query=${encodeURIComponent(query)}` : ""}`);
+export const gymGetMember = (id: string) => request<MemberOut>(`/gym/members/${id}`);
+export const gymListFriends = () => request<FriendOut[]>("/gym/friends");
+export const gymListFriendRequests = () => request<FriendRequests>("/gym/friends/requests");
+export const gymSendFriendRequest = (addressee_id: string) =>
+  request<{ friendship_id: string; status: string }>("/gym/friends/requests", {
+    method: "POST", body: JSON.stringify({ addressee_id }),
+  });
+export const gymAcceptFriendRequest = (id: string) =>
+  request<{ friendship_id: string; status: string }>(`/gym/friends/requests/${id}/accept`, { method: "POST" });
+export const gymDeclineFriendRequest = (id: string) =>
+  request<{ friendship_id: string; status: string }>(`/gym/friends/requests/${id}/decline`, { method: "POST" });
+export const gymRemoveFriend = (userId: string) =>
+  request<void>(`/gym/friends/${userId}`, { method: "DELETE" });
+
+// Community groups: browse, join, post, chat (A28 + issue #3 P3)
+export const gymListGroups = () => request<GroupSummary[]>("/gym/community/groups");
+export const gymJoinGroup = (id: string) =>
+  request<{ group_id: string; is_member: boolean }>(`/gym/community/groups/${id}/join`, { method: "POST" });
+export const gymLeaveGroup = (id: string) =>
+  request<void>(`/gym/community/groups/${id}/join`, { method: "DELETE" });
 export const gymListPosts = (id: string) => request<CommunityPost[]>(`/gym/community/groups/${id}/posts`);
 export const gymCreatePost = (id: string, content: string) =>
   request<CommunityPost>(`/gym/community/groups/${id}/posts`, { method: "POST", body: JSON.stringify({ content }) });
+export const gymListGroupChat = (id: string) =>
+  request<GroupChatMessage[]>(`/gym/community/groups/${id}/chat`);
+export const gymSendGroupChat = (id: string, body: string) =>
+  request<GroupChatMessage>(`/gym/community/groups/${id}/chat`, { method: "POST", body: JSON.stringify({ body }) });

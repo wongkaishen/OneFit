@@ -27,9 +27,11 @@ from app.models import (
     Exercise,
     GymUser,
     LoginEvent,
+    Message,
     Notification,
     Profile,
     ProgressEntry,
+    Report,
     WellnessSpecialist,
     WorkoutPlan,
     WorkoutSession,
@@ -534,55 +536,38 @@ async def remove_program(plan_id: uuid.UUID, admin: AdminDep, db: DbDep):
     return {"plan_id": plan_id, "status": "superseded", "sessions_detached": detached}
 
 
-# --- UC8: Send Notification to Member ---------------------------------------
+# --- UC8: Send a direct message to one member -------------------------------
+# Broadcasts to a role/everyone go through Announcements (the single broadcast
+# tool). This endpoint is intentionally narrowed to a single recipient so the two
+# do not overlap: Announcements = broadcast, this = targeted direct message.
 class NotifyIn(BaseModel):
     message: str
-    # "user" (needs user_id), "gym_users", "specialists", or "all".
-    audience: str = "all"
-    user_id: uuid.UUID | None = None
+    user_id: uuid.UUID
     title: str | None = None
 
 
 @router.post("/notifications", status_code=status.HTTP_201_CREATED)
 async def send_notification(body: NotifyIn, admin: AdminDep, db: DbDep):
-    """Dispatch a notification to a single user, a role group, or everyone (UC8)."""
+    """Dispatch a direct notification to a single user (UC8).
+
+    Role/all broadcasts are deliberately not supported here — use Announcements.
+    """
     if not body.message.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Message is required")
+    if await db.get(Profile, body.user_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    if body.audience == "user":
-        if body.user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="audience 'user' requires user_id",
-            )
-        if await db.get(Profile, body.user_id) is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        recipients = [body.user_id]
-    elif body.audience in {"gym_users", "specialists", "all"}:
-        stmt = select(Profile.id)
-        if body.audience == "gym_users":
-            stmt = stmt.where(Profile.role == "gym_user")
-        elif body.audience == "specialists":
-            stmt = stmt.where(Profile.role == "wellness_specialist")
-        recipients = list((await db.execute(stmt)).scalars().all())
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="audience must be 'user', 'gym_users', 'specialists', or 'all'",
-        )
-
-    for rid in recipients:
-        await notify(
-            db,
-            recipient_id=rid,
-            type="admin_message",
-            title=body.title or "Message from your admin",
-            body=body.message,
-        )
+    await notify(
+        db,
+        recipient_id=body.user_id,
+        type="admin_message",
+        title=body.title or "Message from your admin",
+        body=body.message,
+    )
     await record_audit(db, actor_id=uuid.UUID(admin.id), action="send_notification",
-                       details=f"{body.audience}: {len(recipients)} recipient(s)")
+                       details=f"user {body.user_id}")
     await db.commit()
-    return {"sent": len(recipients), "audience": body.audience}
+    return {"sent": 1, "user_id": body.user_id}
 
 
 # --- C16: Login Events Monitor -----------------------------------------------
@@ -765,6 +750,170 @@ async def admin_delete_post(post_id: uuid.UUID, admin: AdminDep, db: DbDep):
                        details=f"post {post_id} deleted")
     await db.commit()
     return {"deleted": True, "post_id": post_id}
+
+
+# --- Reports queue (issue #3 P1) --------------------------------------------
+# Members report posts/messages/users; admins triage. Resolving a report can
+# dismiss it, remove the offending post, or suspend the offending user. Reading
+# reports exposes author/target PII and is audited; every resolution is audited.
+class ReportOut(BaseModel):
+    report_id: uuid.UUID
+    reporter_id: uuid.UUID
+    reporter_name: str | None = None
+    target_type: str
+    target_id: uuid.UUID
+    reason: str | None = None
+    status: str
+    created_at: dt.datetime
+    # Resolved target context for the queue UI:
+    target_summary: str | None = None       # post content / message body excerpt
+    target_user_id: uuid.UUID | None = None  # the user who can be suspended
+    target_user_name: str | None = None
+
+
+class ResolveIn(BaseModel):
+    action: str  # 'dismiss' | 'remove_post' | 'suspend_user'
+    note: str | None = None
+
+
+VALID_REPORT_ACTION = {"dismiss", "remove_post", "suspend_user"}
+
+
+async def _report_context(db: AsyncSession, r: Report) -> dict:
+    """Resolve a report's target into a summary + the suspendable user."""
+    summary: str | None = None
+    target_user_id: uuid.UUID | None = None
+    target_user_name: str | None = None
+    if r.target_type == "post":
+        post = await db.get(CommunityPost, r.target_id)
+        if post is not None:
+            summary = post.content[:200]
+            target_user_id = post.author_id
+    elif r.target_type == "message":
+        msg = await db.get(Message, r.target_id)
+        if msg is not None:
+            summary = msg.body[:200]
+            target_user_id = msg.sender_id
+    elif r.target_type == "user":
+        target_user_id = r.target_id
+    if target_user_id is not None:
+        tu = await db.get(Profile, target_user_id)
+        target_user_name = tu.name if tu else None
+    return {
+        "target_summary": summary,
+        "target_user_id": target_user_id,
+        "target_user_name": target_user_name,
+    }
+
+
+@router.get("/reports", response_model=list[ReportOut])
+async def list_reports(admin: AdminDep, db: DbDep, status_filter: str = "open"):
+    """The moderation queue. Defaults to open reports; pass status_filter to widen."""
+    stmt = (
+        select(Report, Profile.name)
+        .outerjoin(Profile, Profile.id == Report.reporter_id)
+        .order_by(Report.created_at.desc())
+        .limit(200)
+    )
+    if status_filter and status_filter != "all":
+        stmt = stmt.where(Report.status == status_filter)
+    rows = (await db.execute(stmt)).all()
+    out: list[ReportOut] = []
+    for r, reporter_name in rows:
+        ctx = await _report_context(db, r)
+        out.append(
+            ReportOut(
+                report_id=r.report_id,
+                reporter_id=r.reporter_id,
+                reporter_name=reporter_name,
+                target_type=r.target_type,
+                target_id=r.target_id,
+                reason=r.reason,
+                status=r.status,
+                created_at=r.created_at,
+                **ctx,
+            )
+        )
+    # Reading reports surfaces author/target PII — audit the access.
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="view_reports",
+                       details=f"{len(out)} report(s) [{status_filter}]")
+    await db.commit()
+    return out
+
+
+@router.post("/reports/{report_id}/resolve", response_model=ReportOut)
+async def resolve_report(report_id: uuid.UUID, body: ResolveIn, admin: AdminDep, db: DbDep):
+    """Triage a report: dismiss, remove the post, or suspend the offending user."""
+    if body.action not in VALID_REPORT_ACTION:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"action must be one of {sorted(VALID_REPORT_ACTION)}",
+        )
+    report = await db.get(Report, report_id)
+    if report is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    if report.status != "open":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Report already {report.status}",
+        )
+
+    ctx = await _report_context(db, report)
+    detail = f"report {report_id} ({report.target_type}) -> {body.action}"
+
+    if body.action == "dismiss":
+        report.status = "dismissed"
+    elif body.action == "remove_post":
+        if report.target_type != "post":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="remove_post applies only to post reports",
+            )
+        post = await db.get(CommunityPost, report.target_id)
+        if post is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post already gone")
+        post.status = "Removed"
+        report.status = "actioned"
+    elif body.action == "suspend_user":
+        target_user_id = ctx["target_user_id"]
+        if target_user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No user associated with this report",
+            )
+        target = await db.get(Profile, target_user_id)
+        if target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target user not found")
+        target.status = "suspended"
+        report.status = "actioned"
+
+    report.reviewed_by = uuid.UUID(admin.id)
+    report.reviewed_at = _now()
+
+    # Let the reporter know their report was handled.
+    await notify(
+        db,
+        recipient_id=report.reporter_id,
+        type="moderation",
+        title="Your report was reviewed",
+        body=f"Thanks — an admin reviewed your report and took action ({body.action.replace('_', ' ')}).",
+    )
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="resolve_report", details=detail)
+    await db.commit()
+    await db.refresh(report)
+    ctx = await _report_context(db, report)
+    reporter = await db.get(Profile, report.reporter_id)
+    return ReportOut(
+        report_id=report.report_id,
+        reporter_id=report.reporter_id,
+        reporter_name=reporter.name if reporter else None,
+        target_type=report.target_type,
+        target_id=report.target_id,
+        reason=report.reason,
+        status=report.status,
+        created_at=report.created_at,
+        **ctx,
+    )
 
 
 # --- Admin program/plan management ------------------------------------------

@@ -284,6 +284,80 @@ export interface ContentIn {
   permission_confirmed?: boolean;
 }
 
+// Global community feed post (issue #3 P1).
+export interface FeedPost {
+  post_id: string;
+  author_id: string;
+  author_name: string | null;
+  author_role: string | null;
+  content: string;
+  image_url: string | null;
+  created_at: string;
+}
+
+export type ReportTarget = "post" | "message" | "user";
+
+export interface ReportIn {
+  target_type: ReportTarget;
+  target_id: string;
+  reason?: string | null;
+}
+
+// Admin moderation queue entry (issue #3 P1).
+export interface ReportOut {
+  report_id: string;
+  reporter_id: string;
+  reporter_name: string | null;
+  target_type: ReportTarget;
+  target_id: string;
+  reason: string | null;
+  status: "open" | "dismissed" | "actioned";
+  created_at: string;
+  target_summary: string | null;
+  target_user_id: string | null;
+  target_user_name: string | null;
+}
+
+// Friend graph + member directory (issue #3 P2).
+export type FriendState = "none" | "pending_out" | "pending_in" | "friends" | "self";
+
+export interface MemberOut {
+  user_id: string;
+  name: string | null;
+  goal: string | null;
+  friend_state: FriendState;
+  can_message: boolean;
+}
+
+export interface FriendOut {
+  user_id: string;
+  name: string | null;
+}
+
+export interface FriendRequest {
+  friendship_id: string;
+  other_id: string;
+  other_name: string | null;
+  created_at: string;
+}
+
+export interface FriendRequests {
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
+}
+
+// Published educational content as seen by a gym user (carries the author's name).
+export interface EducationalContentOut {
+  content_id: string;
+  title: string;
+  body: string;
+  category: string;
+  media_url: string | null;
+  specialist_id: string;
+  specialist_name: string | null;
+  created_at: string;
+}
+
 export interface FeedbackIn {
   user_id: string;
   notes: string;
@@ -433,6 +507,22 @@ export interface AITargets {
 }
 
 export interface CommunityGroup { group_id: string; name: string; description: string | null; }
+
+// Group with membership context + chat (issue #3 P3).
+export interface GroupSummary {
+  group_id: string;
+  name: string;
+  description: string | null;
+  member_count: number;
+  is_member: boolean;
+}
+export interface GroupChatMessage {
+  message_id: string;
+  sender_id: string;
+  sender_name: string | null;
+  body: string;
+  created_at: string;
+}
 export interface CommunityPost {
   post_id: string; group_id: string; author_id: string; content: string;
   status: string; severity: string | null; created_at?: string;

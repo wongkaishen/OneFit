@@ -7,9 +7,10 @@ const ADMIN_NAV: NavItem[] = [
   { label: "Users", href: "/admin/users" },
   { label: "Specialist approvals", href: "/admin/registrations" },
   { label: "Announcements", href: "/admin/announcements" },
-  { label: "Notifications", href: "/admin/notifications" },
+  { label: "Message a user", href: "/admin/notifications" },
   { label: "Programs", href: "/admin/programs" },
   { label: "Community", href: "/admin/community" },
+  { label: "Reports", href: "/admin/reports" },
   { label: "Security", href: "/admin/security" },
 ];
 

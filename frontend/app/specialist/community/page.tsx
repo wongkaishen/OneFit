@@ -8,11 +8,72 @@ import { Chip } from "@/components/ui/Chip";
 import { Hairline } from "@/components/ui/Hairline";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Field";
+import { Label } from "@/components/ui/Label";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
-import { listGroups, createGroup, deleteGroup, listGroupPosts, createGroupPost, moderatePost } from "@/lib/api/specialist";
+import { Textarea } from "@/components/ui/Field";
+import { listGroups, createGroup, deleteGroup, listGroupPosts, createGroupPost, moderatePost, specialistCreateFeedPost, specialistUploadFeedPhoto } from "@/lib/api/specialist";
 import type { CommunityGroup, CommunityPost } from "@/lib/api/types";
+
+function FeedComposer() {
+  const [text, setText] = useState("");
+  const [image, setImage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: "good" | "coral"; text: string } | null>(null);
+
+  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true); setMsg(null);
+    try {
+      const { image_url } = await specialistUploadFeedPhoto(file);
+      setImage(image_url);
+    } catch (e2) {
+      setMsg({ tone: "coral", text: e2 instanceof ApiError ? e2.message : "Couldn't upload the photo." });
+    } finally {
+      setBusy(false); e.target.value = "";
+    }
+  };
+
+  const share = async () => {
+    if (!text.trim() && !image) return;
+    setBusy(true); setMsg(null);
+    try {
+      await specialistCreateFeedPost(text.trim(), image);
+      setText(""); setImage(null);
+      setMsg({ tone: "good", text: "Shared to the community feed." });
+    } catch (e2) {
+      setMsg({ tone: "coral", text: e2 instanceof ApiError ? e2.message : "Couldn't share your post." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="mb-6">
+      <Label>Share to the community feed</Label>
+      <Textarea className="mt-3" value={text} onChange={(e) => setText(e.target.value)}
+        placeholder="Share a tip or an educational highlight with all members…" />
+      {image && (
+        <div className="mt-3 flex items-start gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image} alt="" className="max-h-[180px] rounded border border-border object-cover" />
+          <button type="button" onClick={() => setImage(null)}
+            className="text-[12px] font-semibold uppercase tracking-label text-subtle hover:text-coral">Remove</button>
+        </div>
+      )}
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <label className="cursor-pointer text-[12px] font-semibold uppercase tracking-label text-subtle hover:text-charcoal">
+          {busy ? "Uploading…" : "Add photo"}
+          <input type="file" accept="image/*" className="hidden" onChange={onPickPhoto} disabled={busy} />
+        </label>
+        <Button type="button" variant="dark" onClick={share} disabled={busy || (!text.trim() && !image)}>Share</Button>
+      </div>
+      {msg && <div className={`mt-2 text-[13px] ${msg.tone === "good" ? "text-good" : "text-coral"}`}>{msg.text}</div>}
+    </Card>
+  );
+}
 
 export default function SpecialistCommunityPage() {
   const groups = useResource<CommunityGroup[]>(listGroups, []);
@@ -74,7 +135,9 @@ export default function SpecialistCommunityPage() {
     <>
       <TopBar title="Community" search="Search" avatarLetter="S" />
       <PageBody>
-        <PageHeader eyebrow="Community">Create groups, post updates, and moderate member posts.</PageHeader>
+        <PageHeader eyebrow="Community">Share to the feed, create groups, post updates, and moderate member posts.</PageHeader>
+
+          <FeedComposer />
 
           <Card className="mb-6">
             <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">

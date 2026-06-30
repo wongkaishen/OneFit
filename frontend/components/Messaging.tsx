@@ -15,16 +15,30 @@ function initials(name: string | null) {
   return (name ?? "?").trim().slice(0, 1).toUpperCase() || "?";
 }
 
-export function Messaging({ avatarLetter }: { avatarLetter: string }) {
+export function Messaging({
+  avatarLetter,
+  initialPartnerId,
+  initialPartnerName,
+}: {
+  avatarLetter: string;
+  initialPartnerId?: string | null;
+  initialPartnerName?: string | null;
+}) {
   const threads = useResource<MessageThread[]>(listThreads, []);
-  const [active, setActive] = useState<string | null>(null);
+  const [active, setActive] = useState<string | null>(initialPartnerId ?? null);
   const [msgs, setMsgs] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [sendErr, setSendErr] = useState<string | null>(null);
 
   useEffect(() => { if (active) getThread(active).then(setMsgs).catch(() => setMsgs([])); }, [active]);
 
-  const activeThread = (threads.data ?? []).find((t) => t.partner_id === active) ?? null;
+  // Fall back to the passed-in partner so a brand-new conversation (no thread row
+  // yet) still shows the recipient's name in the header.
+  const activeThread =
+    (threads.data ?? []).find((t) => t.partner_id === active) ??
+    (active && active === initialPartnerId
+      ? { partner_id: active, partner_name: initialPartnerName ?? null, last_body: "", last_at: "", unread: 0 }
+      : null);
 
   const send = async () => {
     if (!active || !text.trim()) return;

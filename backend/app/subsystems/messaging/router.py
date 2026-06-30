@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import CurrentUser, get_current_user
-from app.models import Message, Profile, SpecialistClient
+from app.models import Friendship, Message, Profile, SpecialistClient
 from app.services.notification import notify
 
 router = APIRouter(prefix="/messages", tags=["messaging"])
@@ -35,7 +35,8 @@ class MessageIn(BaseModel):
 
 
 async def _assert_related(db: AsyncSession, a: uuid.UUID, b: uuid.UUID) -> None:
-    """Require an active specialist_clients link between a and b (either direction)."""
+    """Allow messaging when a and b are in an active specialist↔client relationship
+    OR are accepted friends (either direction)."""
     rel = (await db.execute(
         select(SpecialistClient.specialist_id).where(
             SpecialistClient.status == "active",
@@ -45,8 +46,22 @@ async def _assert_related(db: AsyncSession, a: uuid.UUID, b: uuid.UUID) -> None:
             ),
         )
     )).first()
-    if rel is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No consultation relationship with this user")
+    if rel is not None:
+        return
+    friend = (await db.execute(
+        select(Friendship.friendship_id).where(
+            Friendship.status == "accepted",
+            or_(
+                (Friendship.requester_id == a) & (Friendship.addressee_id == b),
+                (Friendship.requester_id == b) & (Friendship.addressee_id == a),
+            ),
+        )
+    )).first()
+    if friend is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only message your specialist/clients or your friends",
+        )
 
 
 @router.get("/threads")

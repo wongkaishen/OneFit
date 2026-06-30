@@ -19,13 +19,14 @@ function iconFor(label: string): IconName {
   if (k.includes("progress")) return "progress";
   if (k.includes("feedback")) return "feedback";
   if (k.includes("calendar")) return "calendar";
-  if (k.includes("community")) return "community";
+  if (k.includes("community") || k.includes("group")) return "community";
+  if (k.includes("member")) return "users";
   if (k.includes("message")) return "messages";
   if (k.includes("notification")) return "bell";
   if (k.includes("profile")) return "profile";
   if (k.includes("client")) return "clients";
   if (k.includes("task")) return "tasks";
-  if (k.includes("content")) return "content";
+  if (k.includes("content") || k.includes("education")) return "content";
   if (k.includes("announce")) return "announce";
   if (k.includes("report")) return "reports";
   if (k.includes("user")) return "users";

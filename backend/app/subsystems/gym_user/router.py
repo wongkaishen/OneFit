@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -28,13 +28,18 @@ from app.models import (
     CommunityGroup,
     CommunityPost,
     DietaryLog,
+    EducationalContent,
     Exercise,
     Feedback,
     FitnessProfile,
+    Friendship,
+    GroupMember,
+    GroupMessage,
     MealPlan,
     Milestone,
     Profile,
     ProgressEntry,
+    Report,
     WorkoutPlan,
     WorkoutSession,
 )
@@ -496,21 +501,489 @@ async def schedule_session(body: SessionIn, user: GymUserDep, db: DbDep):
     return session
 
 
-# --- Community (A28) ---------------------------------------------------------
+# --- Educational content library (UC3 read side) -----------------------------
+@router.get("/content")
+async def gym_list_content(user: GymUserDep, db: DbDep, category: str | None = None):
+    """Published educational content from any specialist, for the gym user library.
+
+    Only 'Published' + visible rows are returned (drafts/archived stay hidden).
+    Each item carries its author's display name. Read-only; no notification fan-out.
+    """
+    stmt = (
+        select(EducationalContent, Profile.name)
+        .outerjoin(Profile, Profile.id == EducationalContent.specialist_id)
+        .where(
+            EducationalContent.status == "Published",
+            EducationalContent.visibility.is_(True),
+        )
+        .order_by(EducationalContent.created_at.desc())
+    )
+    if category:
+        stmt = stmt.where(EducationalContent.category == category)
+    rows = (await db.execute(stmt)).all()
+    return [
+        {
+            "content_id": c.content_id,
+            "title": c.title,
+            "body": c.body,
+            "category": c.category,
+            "media_url": c.media_url,
+            "specialist_id": c.specialist_id,
+            "specialist_name": name,
+            "created_at": c.created_at,
+        }
+        for c, name in rows
+    ]
+
+
+# --- Social feed (issue #3 P1) ----------------------------------------------
+# The global feed reuses community_posts with group_id IS NULL. Posts carry an
+# optional image and an author identity for rendering.
+class FeedPostIn(BaseModel):
+    content: str = ""
+    image_url: str | None = None
+
+
+class ReportIn(BaseModel):
+    target_type: str  # 'post' | 'message' | 'user'
+    target_id: uuid.UUID
+    reason: str | None = None
+
+
+VALID_REPORT_TARGET = {"post", "message", "user"}
+
+
+async def _serialize_feed_posts(db: AsyncSession, rows) -> list[dict]:
+    return [
+        {
+            "post_id": p.post_id,
+            "author_id": p.author_id,
+            "author_name": name,
+            "author_role": role,
+            "content": p.content,
+            "image_url": p.image_url,
+            "created_at": p.created_at,
+        }
+        for p, name, role in rows
+    ]
+
+
+@router.get("/feed")
+async def gym_list_feed(user: GymUserDep, db: DbDep, limit: int = 50):
+    """Global social feed: posts (any author) not tied to a group, newest first."""
+    rows = (
+        await db.execute(
+            select(CommunityPost, Profile.name, Profile.role)
+            .outerjoin(Profile, Profile.id == CommunityPost.author_id)
+            .where(CommunityPost.group_id.is_(None), CommunityPost.status != "Removed")
+            .order_by(CommunityPost.created_at.desc())
+            .limit(limit)
+        )
+    ).all()
+    return await _serialize_feed_posts(db, rows)
+
+
+@router.post("/feed", status_code=status.HTTP_201_CREATED)
+async def gym_create_feed_post(body: FeedPostIn, user: GymUserDep, db: DbDep):
+    """Share a progress post to the global feed (text and/or an image)."""
+    content = body.content.strip()
+    if not content and not body.image_url:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A post needs text or an image.",
+        )
+    post = CommunityPost(
+        post_id=uuid.uuid4(),
+        group_id=None,
+        author_id=uuid.UUID(user.id),
+        content=content,
+        image_url=body.image_url,
+        status="Posted",
+    )
+    db.add(post)
+    await db.commit()
+    await db.refresh(post)
+    return {
+        "post_id": post.post_id,
+        "author_id": post.author_id,
+        "author_name": user.name,
+        "author_role": "gym_user",
+        "content": post.content,
+        "image_url": post.image_url,
+        "created_at": post.created_at,
+    }
+
+
+@router.post("/feed/photo")
+async def upload_feed_photo(user: GymUserDep, file: UploadFile = File(...)):
+    """Upload a feed image to the public bucket; returns its URL for POST /gym/feed."""
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Max 5 MB")
+    path = safe_object_path("feed", user.id, file.filename or "photo.jpg")
+    await upload_object(PUBLIC_BUCKET, path, content, file.content_type or "image/jpeg")
+    return {"image_url": public_url(PUBLIC_BUCKET, path)}
+
+
+@router.post("/reports", status_code=status.HTTP_201_CREATED)
+async def gym_create_report(body: ReportIn, user: GymUserDep, db: DbDep):
+    """Report a post, message, or user to the admins for review (issue #3 P1)."""
+    if body.target_type not in VALID_REPORT_TARGET:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"target_type must be one of {sorted(VALID_REPORT_TARGET)}",
+        )
+    # Validate the target exists and flag a reported post so moderators see it.
+    if body.target_type == "post":
+        post = await db.get(CommunityPost, body.target_id)
+        if post is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+        if post.status == "Posted":
+            post.status = "Flagged"
+    elif body.target_type == "user":
+        if await db.get(Profile, body.target_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    report = Report(
+        report_id=uuid.uuid4(),
+        reporter_id=uuid.UUID(user.id),
+        target_type=body.target_type,
+        target_id=body.target_id,
+        reason=(body.reason or "").strip() or None,
+        status="open",
+    )
+    db.add(report)
+    # Notify every admin that a new report is waiting.
+    admins = (await db.execute(select(Profile.id).where(Profile.role == "admin"))).scalars().all()
+    for aid in admins:
+        await notify(
+            db,
+            recipient_id=aid,
+            type="moderation",
+            title="New content report",
+            body=f"A {body.target_type} was reported and is awaiting review.",
+            ref_type="report",
+            ref_id=report.report_id,
+        )
+    await db.commit()
+    await db.refresh(report)
+    return {"report_id": report.report_id, "status": report.status}
+
+
+# --- Friends + member directory (issue #3 P2) -------------------------------
+class FriendRequestIn(BaseModel):
+    addressee_id: uuid.UUID
+
+
+async def _friend_states(
+    db: AsyncSession, me: uuid.UUID, others: list[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """Map each other-user id to my relationship with them.
+
+    States: 'none' | 'pending_out' (I requested) | 'pending_in' (they requested,
+    awaiting my response) | 'friends'. Declined relationships read as 'none' so a
+    new request can be sent.
+    """
+    if not others:
+        return {}
+    rows = (
+        await db.execute(
+            select(Friendship).where(
+                or_(
+                    and_(Friendship.requester_id == me, Friendship.addressee_id.in_(others)),
+                    and_(Friendship.addressee_id == me, Friendship.requester_id.in_(others)),
+                )
+            )
+        )
+    ).scalars().all()
+    state: dict[uuid.UUID, str] = {oid: "none" for oid in others}
+    for f in rows:
+        other = f.addressee_id if f.requester_id == me else f.requester_id
+        if f.status == "accepted":
+            state[other] = "friends"
+        elif f.status == "pending":
+            state[other] = "pending_out" if f.requester_id == me else "pending_in"
+        # declined -> leave as 'none'
+    return state
+
+
+def _public_member(profile: Profile, fp: FitnessProfile | None, friend_state: str) -> dict:
+    """Non-sensitive public view of a member (never weight/body-fat/logs)."""
+    return {
+        "user_id": profile.id,
+        "name": profile.name,
+        "goal": fp.fitness_goal if fp else None,
+        "friend_state": friend_state,
+        "can_message": friend_state == "friends",
+    }
+
+
+@router.get("/members")
+async def gym_list_members(user: GymUserDep, db: DbDep, query: str | None = None):
+    """Browsable directory of other active gym users (non-sensitive fields)."""
+    me = uuid.UUID(user.id)
+    stmt = (
+        select(Profile, FitnessProfile)
+        .outerjoin(FitnessProfile, FitnessProfile.user_id == Profile.id)
+        .where(Profile.role == "gym_user", Profile.status == "active", Profile.id != me)
+        .order_by(Profile.name)
+    )
+    if query and query.strip():
+        like = f"%{query.strip().lower()}%"
+        stmt = stmt.where(func.lower(Profile.name).like(like))
+    rows = (await db.execute(stmt)).all()
+    states = await _friend_states(db, me, [p.id for p, _ in rows])
+    return [_public_member(p, fp, states.get(p.id, "none")) for p, fp in rows]
+
+
+@router.get("/members/{user_id}")
+async def gym_get_member(user_id: uuid.UUID, user: GymUserDep, db: DbDep):
+    """Public profile of a single member (non-sensitive fields only)."""
+    me = uuid.UUID(user.id)
+    profile = await db.get(Profile, user_id)
+    if profile is None or profile.role != "gym_user":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+    fp = await db.get(FitnessProfile, user_id)
+    state = (await _friend_states(db, me, [user_id])).get(user_id, "none") if user_id != me else "self"
+    return _public_member(profile, fp, state)
+
+
+@router.get("/friends")
+async def gym_list_friends(user: GymUserDep, db: DbDep):
+    """My accepted friends."""
+    me = uuid.UUID(user.id)
+    rows = (
+        await db.execute(
+            select(Friendship).where(
+                Friendship.status == "accepted",
+                or_(Friendship.requester_id == me, Friendship.addressee_id == me),
+            )
+        )
+    ).scalars().all()
+    friend_ids = [f.addressee_id if f.requester_id == me else f.requester_id for f in rows]
+    if not friend_ids:
+        return []
+    profiles = (
+        await db.execute(select(Profile).where(Profile.id.in_(friend_ids)).order_by(Profile.name))
+    ).scalars().all()
+    return [{"user_id": p.id, "name": p.name} for p in profiles]
+
+
+@router.get("/friends/requests")
+async def gym_list_friend_requests(user: GymUserDep, db: DbDep):
+    """My pending friend requests, split into incoming and outgoing."""
+    me = uuid.UUID(user.id)
+    rows = (
+        await db.execute(
+            select(Friendship)
+            .where(
+                Friendship.status == "pending",
+                or_(Friendship.requester_id == me, Friendship.addressee_id == me),
+            )
+            .order_by(Friendship.created_at.desc())
+        )
+    ).scalars().all()
+    # Resolve the "other" party's name in one lookup.
+    other_ids = {f.requester_id if f.addressee_id == me else f.addressee_id for f in rows}
+    names: dict[uuid.UUID, str | None] = {}
+    if other_ids:
+        for p in (
+            await db.execute(select(Profile).where(Profile.id.in_(other_ids)))
+        ).scalars().all():
+            names[p.id] = p.name
+    incoming, outgoing = [], []
+    for f in rows:
+        other_id = f.requester_id if f.addressee_id == me else f.addressee_id
+        item = {
+            "friendship_id": f.friendship_id,
+            "other_id": other_id,
+            "other_name": names.get(other_id),
+            "created_at": f.created_at,
+        }
+        (incoming if f.addressee_id == me else outgoing).append(item)
+    return {"incoming": incoming, "outgoing": outgoing}
+
+
+@router.post("/friends/requests", status_code=status.HTTP_201_CREATED)
+async def gym_send_friend_request(body: FriendRequestIn, user: GymUserDep, db: DbDep):
+    """Send a friend request to another gym user."""
+    me = uuid.UUID(user.id)
+    other = body.addressee_id
+    if other == me:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="You can't friend yourself")
+    target = await db.get(Profile, other)
+    if target is None or target.role != "gym_user":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+
+    # An existing non-declined relationship (either direction) blocks a new request.
+    existing = (
+        await db.execute(
+            select(Friendship).where(
+                or_(
+                    and_(Friendship.requester_id == me, Friendship.addressee_id == other),
+                    and_(Friendship.requester_id == other, Friendship.addressee_id == me),
+                )
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None and existing.status != "declined":
+        detail = "Already friends" if existing.status == "accepted" else "A request is already pending"
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+    if existing is not None:
+        # Reuse the declined row as a fresh outgoing request.
+        existing.requester_id, existing.addressee_id = me, other
+        existing.status = "pending"
+        existing.created_at = _now()
+        existing.responded_at = None
+        fr = existing
+    else:
+        fr = Friendship(
+            friendship_id=uuid.uuid4(), requester_id=me, addressee_id=other,
+            status="pending", created_at=_now(),
+        )
+        db.add(fr)
+    await notify(
+        db, recipient_id=other, type="friend_request",
+        title="New friend request",
+        body=f"{user.name or 'A member'} sent you a friend request.",
+        ref_type="friendship", ref_id=fr.friendship_id,
+    )
+    await db.commit()
+    return {"friendship_id": fr.friendship_id, "status": "pending"}
+
+
+async def _respond_to_request(
+    db: AsyncSession, me: uuid.UUID, friendship_id: uuid.UUID, accept: bool
+) -> Friendship:
+    fr = await db.get(Friendship, friendship_id)
+    # Only the addressee may respond, and only to a pending request.
+    if fr is None or fr.addressee_id != me or fr.status != "pending":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+    fr.status = "accepted" if accept else "declined"
+    fr.responded_at = _now()
+    return fr
+
+
+@router.post("/friends/requests/{friendship_id}/accept")
+async def gym_accept_friend_request(friendship_id: uuid.UUID, user: GymUserDep, db: DbDep):
+    me = uuid.UUID(user.id)
+    fr = await _respond_to_request(db, me, friendship_id, accept=True)
+    await notify(
+        db, recipient_id=fr.requester_id, type="friend_request",
+        title="Friend request accepted",
+        body=f"{user.name or 'A member'} accepted your friend request. You can now message each other.",
+    )
+    await db.commit()
+    return {"friendship_id": friendship_id, "status": "accepted"}
+
+
+@router.post("/friends/requests/{friendship_id}/decline")
+async def gym_decline_friend_request(friendship_id: uuid.UUID, user: GymUserDep, db: DbDep):
+    me = uuid.UUID(user.id)
+    await _respond_to_request(db, me, friendship_id, accept=False)
+    await db.commit()
+    return {"friendship_id": friendship_id, "status": "declined"}
+
+
+@router.delete("/friends/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def gym_remove_friend(user_id: uuid.UUID, user: GymUserDep, db: DbDep):
+    """Remove a friend (deletes the relationship in either direction)."""
+    me = uuid.UUID(user.id)
+    fr = (
+        await db.execute(
+            select(Friendship).where(
+                Friendship.status == "accepted",
+                or_(
+                    and_(Friendship.requester_id == me, Friendship.addressee_id == user_id),
+                    and_(Friendship.requester_id == user_id, Friendship.addressee_id == me),
+                ),
+            )
+        )
+    ).scalar_one_or_none()
+    if fr is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not friends")
+    await db.delete(fr)
+    await db.commit()
+
+
+# --- Community groups: browse, join, post, chat (A28 + issue #3 P3) ----------
 class CommunityPostIn(BaseModel):
     content: str
 
 
+class GroupChatIn(BaseModel):
+    body: str
+
+
+async def _require_group(db: AsyncSession, group_id: uuid.UUID) -> CommunityGroup:
+    group = await db.get(CommunityGroup, group_id)
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    return group
+
+
+async def _require_membership(db: AsyncSession, group_id: uuid.UUID, me: uuid.UUID) -> None:
+    """Posting and chatting require having joined the group (issue #3 P3)."""
+    if await db.get(GroupMember, (group_id, me)) is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Join this group to post and chat.",
+        )
+
+
 @router.get("/community/groups")
 async def gym_list_groups(user: GymUserDep, db: DbDep):
-    rows = (await db.execute(select(CommunityGroup).order_by(CommunityGroup.name))).scalars().all()
-    return [{"group_id": g.group_id, "name": g.name, "description": g.description} for g in rows]
+    """All groups, annotated with member count and whether I've joined."""
+    me = uuid.UUID(user.id)
+    member_count = (
+        select(GroupMember.group_id, func.count().label("n"))
+        .group_by(GroupMember.group_id)
+        .subquery()
+    )
+    rows = (
+        await db.execute(
+            select(CommunityGroup, member_count.c.n, GroupMember.user_id)
+            .outerjoin(member_count, member_count.c.group_id == CommunityGroup.group_id)
+            .outerjoin(
+                GroupMember,
+                (GroupMember.group_id == CommunityGroup.group_id) & (GroupMember.user_id == me),
+            )
+            .order_by(CommunityGroup.name)
+        )
+    ).all()
+    return [
+        {
+            "group_id": g.group_id,
+            "name": g.name,
+            "description": g.description,
+            "member_count": n or 0,
+            "is_member": mid is not None,
+        }
+        for g, n, mid in rows
+    ]
+
+
+@router.post("/community/groups/{group_id}/join", status_code=status.HTTP_201_CREATED)
+async def gym_join_group(group_id: uuid.UUID, user: GymUserDep, db: DbDep):
+    await _require_group(db, group_id)
+    me = uuid.UUID(user.id)
+    if await db.get(GroupMember, (group_id, me)) is None:
+        db.add(GroupMember(group_id=group_id, user_id=me, joined_at=_now()))
+        await db.commit()
+    return {"group_id": group_id, "is_member": True}
+
+
+@router.delete("/community/groups/{group_id}/join", status_code=status.HTTP_204_NO_CONTENT)
+async def gym_leave_group(group_id: uuid.UUID, user: GymUserDep, db: DbDep):
+    member = await db.get(GroupMember, (group_id, uuid.UUID(user.id)))
+    if member is not None:
+        await db.delete(member)
+        await db.commit()
 
 
 @router.get("/community/groups/{group_id}/posts")
 async def gym_list_posts(group_id: uuid.UUID, user: GymUserDep, db: DbDep):
-    if await db.get(CommunityGroup, group_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    await _require_group(db, group_id)
     rows = (await db.execute(
         select(CommunityPost)
         .where(CommunityPost.group_id == group_id, CommunityPost.status != "Removed")
@@ -521,16 +994,69 @@ async def gym_list_posts(group_id: uuid.UUID, user: GymUserDep, db: DbDep):
 
 @router.post("/community/groups/{group_id}/posts", status_code=status.HTTP_201_CREATED)
 async def gym_create_post(group_id: uuid.UUID, body: CommunityPostIn, user: GymUserDep, db: DbDep):
-    """Gym user posts to a group — also the target of 'share progress' (A28)."""
-    if await db.get(CommunityGroup, group_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    """Post to a group — members only (issue #3 P3)."""
+    await _require_group(db, group_id)
+    me = uuid.UUID(user.id)
+    await _require_membership(db, group_id, me)
     if not body.content.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="content is required")
     post = CommunityPost(
-        post_id=uuid.uuid4(), group_id=group_id, author_id=uuid.UUID(user.id),
+        post_id=uuid.uuid4(), group_id=group_id, author_id=me,
         content=body.content.strip(), status="Posted",
     )
     db.add(post)
     await db.commit()
     await db.refresh(post)
     return post
+
+
+@router.get("/community/groups/{group_id}/chat")
+async def gym_list_group_chat(group_id: uuid.UUID, user: GymUserDep, db: DbDep, limit: int = 100):
+    """Recent group chat messages (members only). Oldest-first for display."""
+    await _require_group(db, group_id)
+    me = uuid.UUID(user.id)
+    await _require_membership(db, group_id, me)
+    rows = (
+        await db.execute(
+            select(GroupMessage, Profile.name)
+            .outerjoin(Profile, Profile.id == GroupMessage.sender_id)
+            .where(GroupMessage.group_id == group_id)
+            .order_by(GroupMessage.created_at.desc())
+            .limit(limit)
+        )
+    ).all()
+    # Return oldest-first so the chat reads top-to-bottom.
+    return [
+        {
+            "message_id": m.message_id,
+            "sender_id": m.sender_id,
+            "sender_name": name,
+            "body": m.body,
+            "created_at": m.created_at,
+        }
+        for m, name in reversed(rows)
+    ]
+
+
+@router.post("/community/groups/{group_id}/chat", status_code=status.HTTP_201_CREATED)
+async def gym_send_group_chat(group_id: uuid.UUID, body: GroupChatIn, user: GymUserDep, db: DbDep):
+    """Send a group chat message (members only)."""
+    await _require_group(db, group_id)
+    me = uuid.UUID(user.id)
+    await _require_membership(db, group_id, me)
+    if not body.body.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="body is required")
+    msg = GroupMessage(
+        message_id=uuid.uuid4(), group_id=group_id, sender_id=me,
+        body=body.body.strip(), created_at=_now(),
+    )
+    db.add(msg)
+    await db.commit()
+    await db.refresh(msg)
+    return {
+        "message_id": msg.message_id,
+        "sender_id": msg.sender_id,
+        "sender_name": user.name,
+        "body": msg.body,
+        "created_at": msg.created_at,
+    }

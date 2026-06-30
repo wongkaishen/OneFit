@@ -1,9 +1,15 @@
 import { request, upload } from "./client";
 import type {
   ActivityLog, ClientSummary, CommunityGroup, CommunityPost, ContentIn, ContentOut, DietaryLog,
-  FeedbackIn, MealPlanIn, MealPlanOut, MealPlanUpdate, ProgressEntry,
+  FeedbackIn, FeedPost, MealPlanIn, MealPlanOut, MealPlanUpdate, ProgressEntry,
   WellnessTaskOut, WellnessTaskIn,
 } from "./types";
+
+// Social feed (issue #3 P1) — specialists post to the same global feed.
+export const specialistCreateFeedPost = (content: string, image_url?: string | null) =>
+  request<FeedPost>("/specialist/feed", { method: "POST", body: JSON.stringify({ content, image_url }) });
+export const specialistUploadFeedPhoto = (file: File) =>
+  upload<{ image_url: string }>("/specialist/feed/photo", file);
 
 export const listClients = () => request<ClientSummary[]>("/specialist/clients");
 export const getClient = (id: string) => request<ClientSummary>(`/specialist/clients/${id}`);

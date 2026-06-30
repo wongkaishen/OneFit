@@ -304,13 +304,15 @@ class CommunityPost(Base):
     post_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    group_id: Mapped[uuid.UUID] = mapped_column(
+    # NULL group_id = a global social-feed post (vs. a post in a community group).
+    group_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("community_groups.group_id", ondelete="CASCADE")
     )
     author_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE")
     )
     content: Mapped[str] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(Text)  # optional attached photo (0016)
     status: Mapped[str] = mapped_column(post_status_enum, default="Posted")
     severity: Mapped[str | None] = mapped_column(post_severity_enum)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -435,6 +437,75 @@ class Message(Base):
     )
     body: Mapped[str] = mapped_column(Text)
     read_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# --- Community reports (issue #3 P1; table from 0016_community_feed.sql) -----
+class Report(Base):
+    __tablename__ = "reports"
+
+    report_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    reporter_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    target_type: Mapped[str] = mapped_column(Text)  # 'post' | 'message' | 'user'
+    target_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    reason: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, default="open")  # open | dismissed | actioned
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="SET NULL")
+    )
+    reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# --- Friend graph (issue #3 P2; table from 0017_friendships.sql) ------------
+class Friendship(Base):
+    __tablename__ = "friendships"
+
+    friendship_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    requester_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    addressee_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    status: Mapped[str] = mapped_column(Text, default="pending")  # pending | accepted | declined
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    responded_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# --- Group membership + chat (issue #3 P3; tables from 0018_group_chat.sql) --
+class GroupMember(Base):
+    __tablename__ = "group_members"
+
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("community_groups.group_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True
+    )
+    joined_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GroupMessage(Base):
+    __tablename__ = "group_messages"
+
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("community_groups.group_id", ondelete="CASCADE")
+    )
+    sender_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

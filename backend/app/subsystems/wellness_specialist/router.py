@@ -701,6 +701,56 @@ async def delete_task(task_id: uuid.UUID, user: SpecialistDep, db: DbDep):
     await db.commit()
 
 
+# --- Social feed (issue #3 P1) ----------------------------------------------
+# Specialists post to the same global feed gym users see (group_id IS NULL) —
+# their social channel for sharing tips/educational highlights.
+class FeedPostIn(BaseModel):
+    content: str = ""
+    image_url: str | None = None
+
+
+@router.post("/feed", status_code=status.HTTP_201_CREATED)
+async def specialist_create_feed_post(body: FeedPostIn, user: SpecialistDep, db: DbDep):
+    """Share a post to the global community feed (text and/or an image)."""
+    content = body.content.strip()
+    if not content and not body.image_url:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A post needs text or an image.",
+        )
+    post = CommunityPost(
+        post_id=uuid.uuid4(),
+        group_id=None,
+        author_id=uuid.UUID(user.id),
+        content=content,
+        image_url=body.image_url,
+        status="Posted",
+    )
+    db.add(post)
+    await db.commit()
+    await db.refresh(post)
+    return {
+        "post_id": post.post_id,
+        "author_id": post.author_id,
+        "author_name": user.name,
+        "author_role": "wellness_specialist",
+        "content": post.content,
+        "image_url": post.image_url,
+        "created_at": post.created_at,
+    }
+
+
+@router.post("/feed/photo")
+async def upload_feed_photo(user: SpecialistDep, file: UploadFile = File(...)):
+    """Upload a feed image to the public bucket; returns its URL for POST /specialist/feed."""
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Max 5 MB")
+    path = safe_object_path("feed", user.id, file.filename or "photo.jpg")
+    await upload_object(PUBLIC_BUCKET, path, content, file.content_type or "image/jpeg")
+    return {"image_url": public_url(PUBLIC_BUCKET, path)}
+
+
 # --- UC5: Monitor Gym User Wellness Community Groups -------------------------
 class ModerateIn(BaseModel):
     # "remove" | "warn" | "escalate"
