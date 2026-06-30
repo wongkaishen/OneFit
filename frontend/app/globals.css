@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  /* raw tokens for places where utilities are awkward */
+  --cream: #FAF6F0;
+  --cream-deep: #F2ECE1;
+  --paper: #FFFFFF;
+  --charcoal: #1F1D1B;
+  --muted: #8A857D;
+  --subtle: #5C5852;
+  --border: #E2DBCD;
+  --border-strong: #D2C9B8;
+  --coral: #E85D4A;
+  --coral-soft: #FBE7E2;
+  accent-color: var(--coral);
+}
+
+html, body { padding: 0; margin: 0; }
+html { overflow-x: hidden; }
+body {
+  background: var(--cream);
+  color: var(--charcoal);
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+* { box-sizing: border-box; }
+
+/* Thin, on-brand scrollbars. */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--border-strong); border: 3px solid var(--cream); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* Keep native date/time pickers aligned with our input typography. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  appearance: none;
+  -webkit-appearance: none;
+}
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.5;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+@layer components {
+  /* Shared surface — sharp editorial corners, subtle depth. */
+  .of-surface {
+    @apply border border-border bg-paper shadow-card;
+  }
+  /* Eyebrow / micro-label used across the app. */
+  .of-eyebrow {
+    @apply font-sans text-[10px] font-semibold uppercase tracking-label text-muted;
+  }
+}
+
+/* Honour reduced-motion for shell transitions and skeleton pulse. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

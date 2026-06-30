@@ -1,0 +1,252 @@
+"""Authentication subsystem (Platform Services).
+
+Implements SDD Gym User UC1 Register / UC2 Login by proxying Supabase GoTrue,
+so the Next.js frontend only ever talks to FastAPI. Email verification is
+handled by Supabase. The `on_auth_user_created` trigger creates the profile row;
+here we also create the gym_users + fitness_profiles rows for new self-signups.
+"""
+
+import datetime as dt
+import logging
+import uuid as uuidlib
+from typing import Annotated, Literal
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import BaseModel, EmailStr
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.database import get_db
+from app.core.security import CurrentUser, bearer_scheme, get_current_user
+from app.models import LoginEvent, Profile
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+settings = get_settings()
+logger = logging.getLogger(__name__)
+
+TokenDep = Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)]
+
+
+async def _gotrue_auth(method: str, path: str, token: str, payload: dict | None = None) -> dict:
+    """Call a GoTrue endpoint as the authenticated user (Bearer token)."""
+    async with httpx.AsyncClient(base_url=settings.gotrue_url, timeout=15) as client:
+        resp = await client.request(
+            method, path, json=payload,
+            headers={"apikey": settings.supabase_anon_key, "Authorization": f"Bearer {token}",
+                     "Content-Type": "application/json"},
+        )
+    if resp.status_code >= 400:
+        detail = resp.json().get("msg") or resp.json().get("error_description") or resp.text
+        raise HTTPException(status_code=resp.status_code, detail=detail)
+    return resp.json()
+
+
+RegisterRole = Literal["gym_user", "wellness_specialist"]
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str | None = None
+    role: RegisterRole = "gym_user"
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+async def _gotrue(path: str, payload: dict) -> dict:
+    """Call a Supabase GoTrue endpoint with the anon key."""
+    async with httpx.AsyncClient(base_url=settings.gotrue_url, timeout=15) as client:
+        resp = await client.post(
+            path,
+            json=payload,
+            headers={"apikey": settings.supabase_anon_key, "Content-Type": "application/json"},
+        )
+    if resp.status_code >= 400:
+        detail = resp.json().get("msg") or resp.json().get("error_description") or resp.text
+        raise HTTPException(status_code=resp.status_code, detail=detail)
+    return resp.json()
+
+
+async def _gotrue_admin_create_user(payload: dict) -> dict:
+    """Create an auth user via the GoTrue Admin API (service-role key).
+
+    Used for wellness specialists so they are email-confirmed immediately and can
+    obtain a session right after signing up — that session is what lets them upload
+    their credential during onboarding. Admin approval still gates real access via
+    profiles.status='pending'.
+    """
+    async with httpx.AsyncClient(base_url=settings.gotrue_url, timeout=15) as client:
+        resp = await client.post(
+            "/admin/users",
+            json=payload,
+            headers={
+                "apikey": settings.supabase_service_role_key,
+                "Authorization": f"Bearer {settings.supabase_service_role_key}",
+                "Content-Type": "application/json",
+            },
+        )
+    if resp.status_code >= 400:
+        detail = resp.json().get("msg") or resp.json().get("error_description") or resp.text
+        raise HTTPException(status_code=resp.status_code, detail=detail)
+    return resp.json()
+
+
+async def _record_login_event(
+    db: AsyncSession, *, email: str, user_id, success: bool, ip: str | None, user_agent: str | None
+) -> None:
+    """Best-effort login audit (C16). Never raises — auditing must not break auth."""
+    try:
+        db.add(LoginEvent(
+            event_id=uuidlib.uuid4(), email=email, user_id=user_id,
+            success=success, ip=ip, user_agent=user_agent,
+            created_at=dt.datetime.now(dt.timezone.utc),
+        ))
+        await db.commit()
+    except Exception:  # noqa: BLE001 - auditing is best-effort
+        await db.rollback()
+        logger.exception("Failed to record login event for %s", email)
+
+
+async def _provision_subtype(db: AsyncSession, user_id: str, role: RegisterRole) -> None:
+    """Create the role-specific subtype row(s) for a freshly signed-up user.
+
+    The base profile row is created by the on_auth_user_created trigger; here we
+    add the subtype. Best-effort: a failure here must not orphan the already
+    created auth user, so we roll back the subtype writes and swallow the error
+    (the row can be backfilled) rather than 500 the whole signup.
+    """
+    try:
+        if role == "wellness_specialist":
+            # specialization is NOT NULL; seed a placeholder the specialist edits
+            # later.
+            await db.execute(
+                text(
+                    "insert into public.wellness_specialists (user_id, specialization) "
+                    "values (:id, :spec) on conflict do nothing"
+                ),
+                {"id": user_id, "spec": "General Wellness"},
+            )
+            # B3: specialists require admin approval before access. The trigger sets
+            # 'active'; downgrade to 'pending' so AuthGate blocks them until approved.
+            await db.execute(
+                text("update public.profiles set status='pending' where id = :id"),
+                {"id": user_id},
+            )
+        else:
+            await db.execute(
+                text("insert into public.gym_users (user_id) values (:id) on conflict do nothing"),
+                {"id": user_id},
+            )
+            await db.execute(
+                text(
+                    "insert into public.fitness_profiles (user_id) "
+                    "values (:id) on conflict do nothing"
+                ),
+                {"id": user_id},
+            )
+        await db.commit()
+    except Exception:  # noqa: BLE001 - subtype provisioning is best-effort
+        await db.rollback()
+        logger.exception("Failed to provision %s subtype for %s", role, user_id)
+
+
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+async def register(body: RegisterRequest, db: Annotated[AsyncSession, Depends(get_db)]):
+    """Register a new Gym User or Wellness Specialist (UC1).
+
+    Gym users go through the normal /signup flow and confirm their email before
+    signing in. Wellness specialists are created via the Admin API as
+    email-confirmed so they receive a session immediately and can upload their
+    credential during onboarding; admin approval still gates access via
+    profiles.status='pending'. 'suspended' remains an admin-moderation state.
+    Admins are seeded directly in Supabase and cannot self-register.
+    """
+    if body.role == "wellness_specialist":
+        # Email-confirmed on creation so the frontend can log in straight away and
+        # upload the credential; the on_auth_user_created trigger maps the role
+        # into public.profiles, and _provision_subtype downgrades status to pending.
+        result = await _gotrue_admin_create_user(
+            {
+                "email": body.email,
+                "password": body.password,
+                "email_confirm": True,
+                "user_metadata": {"name": body.name, "role": body.role},
+            },
+        )
+    else:
+        result = await _gotrue(
+            "/signup",
+            {
+                "email": body.email,
+                "password": body.password,
+                # The on_auth_user_created trigger maps this role into public.profiles.
+                "data": {"name": body.name, "role": body.role},
+            },
+        )
+    user = result.get("user") or result
+    user_id = user.get("id")
+    if user_id:
+        await _provision_subtype(db, user_id, body.role)
+    return result
+
+
+@router.post("/login")
+async def login(body: LoginRequest, request: Request, db: Annotated[AsyncSession, Depends(get_db)]):
+    """Log in with email + password (UC2); records the attempt for monitoring (C16)."""
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    try:
+        tokens = await _gotrue("/token?grant_type=password", {"email": body.email, "password": body.password})
+    except HTTPException:
+        # Audit the failure best-effort — must not replace the original auth error.
+        await _record_login_event(db, email=body.email, user_id=None,
+                                  success=False, ip=ip, user_agent=ua)
+        raise  # always re-raise the original GoTrue error
+    # success: resolve profile id best-effort (None is acceptable for the audit row)
+    try:
+        prof = (await db.execute(select(Profile.id).where(Profile.email == body.email))).scalar_one_or_none()
+    except Exception:  # noqa: BLE001
+        prof = None
+    await _record_login_event(db, email=body.email, user_id=prof,
+                              success=True, ip=ip, user_agent=ua)
+    return tokens  # always return tokens regardless of audit outcome
+
+
+@router.get("/me", response_model=CurrentUser)
+async def me(user: Annotated[CurrentUser, Depends(get_current_user)]) -> CurrentUser:
+    """Return the authenticated caller's profile."""
+    return user
+
+
+@router.post("/mfa/enroll")
+async def mfa_enroll(creds: TokenDep):
+    """Enroll a TOTP factor for the current user (C3). Returns a QR + secret."""
+    data = await _gotrue_auth("POST", "/factors", creds.credentials, {"factor_type": "totp"})
+    totp = data.get("totp", {})
+    return {
+        "factor_id": data.get("id"),
+        "qr_code": totp.get("qr_code"),
+        "secret": totp.get("secret"),
+        "uri": totp.get("uri"),
+    }
+
+
+class MfaVerifyRequest(BaseModel):
+    factor_id: str
+    code: str
+
+
+@router.post("/mfa/verify")
+async def mfa_verify(body: MfaVerifyRequest, creds: TokenDep):
+    """Challenge + verify a TOTP code; returns elevated (AAL2) tokens (C3)."""
+    challenge = await _gotrue_auth("POST", f"/factors/{body.factor_id}/challenge", creds.credentials)
+    return await _gotrue_auth(
+        "POST", f"/factors/{body.factor_id}/verify", creds.credentials,
+        {"challenge_id": challenge.get("id"), "code": body.code},
+    )
