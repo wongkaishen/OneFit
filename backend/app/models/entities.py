@@ -40,7 +40,6 @@ def _pg_enum(name: str, *values: str) -> ENUM:
 user_role_enum = _pg_enum("user_role", "gym_user", "wellness_specialist", "admin")
 account_status_enum = _pg_enum("account_status", "pending", "active", "suspended")
 membership_status_enum = _pg_enum("membership_status", "active", "suspended")
-specialist_approval_enum = _pg_enum("specialist_approval", "pending", "approved", "rejected")
 specialist_client_status_enum = _pg_enum("specialist_client_status", "active", "removed")
 plan_status_enum = _pg_enum("plan_status", "active", "superseded")
 session_status_enum = _pg_enum("session_status", "scheduled", "completed", "missed")
@@ -96,7 +95,6 @@ class WellnessSpecialist(Base):
     )
     specialization: Mapped[str] = mapped_column(Text)
     certification_doc: Mapped[str | None] = mapped_column(Text)
-    approval_status: Mapped[str] = mapped_column(specialist_approval_enum, default="pending")
 
 
 # --- 3.2.5 Admin ------------------------------------------------------------

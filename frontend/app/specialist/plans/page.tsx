@@ -2,10 +2,12 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { useSession } from "@/lib/auth/session";
@@ -45,13 +47,12 @@ export default function MealPlansManagePage() {
   return (
     <>
       <TopBar title="Plans" search="Search plans" avatarLetter={avatarLetter} />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <div className="mb-[22px] flex items-end justify-between">
+      <PageBody>
+          <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <Label>Meal plans · {plans.length}</Label>
-              <div className="mt-2 font-serif text-[26px] text-charcoal">Your meal plans</div>
-              <div className="mt-1 max-w-[520px] font-sans text-[13px] text-muted">
+              <div className="mt-2 font-serif text-[28px] leading-tight text-charcoal">Your meal plans</div>
+              <div className="mt-1.5 max-w-[520px] font-sans text-[13px] text-muted">
                 Drafts stay editable until you publish them to a client. Publishing sends the plan
                 and notifies the client.
               </div>
@@ -59,8 +60,21 @@ export default function MealPlansManagePage() {
             <Button size="sm" onClick={() => router.push("/specialist/plans/new")}>+ New plan</Button>
           </div>
 
+          {loading && <div className="py-8"><Label>Loading…</Label></div>}
+          {error && <div className="py-8 text-[13px] text-coral">{error}</div>}
+          {err && <div className="py-3 text-[13px] text-coral">{err}</div>}
+          {!loading && !error && plans.length === 0 && (
+            <EmptyState title="No meal plans yet" icon="meals">
+              Build your first plan with “+ New plan”, save it as a draft, then publish it to a
+              client when it’s ready.
+            </EmptyState>
+          )}
+
+          {plans.length > 0 && (
+          <Card padded={false} className="overflow-x-auto">
+          <div className="min-w-[720px]">
           <div
-            className="grid items-center px-1 pb-3"
+            className="grid items-center px-5 pt-4 pb-3"
             style={{ gridTemplateColumns: "2.4fr 1fr 1.6fr 1.2fr 0.6fr" }}
           >
             {["Plan", "Status", "Client", "Updated", ""].map((h, i) => (
@@ -69,24 +83,15 @@ export default function MealPlansManagePage() {
           </div>
           <Hairline />
 
-          {loading && <div className="py-8"><Label>Loading…</Label></div>}
-          {error && <div className="py-8 text-[13px] text-coral">{error}</div>}
-          {err && <div className="py-3 text-[13px] text-coral">{err}</div>}
-          {!loading && !error && plans.length === 0 && (
-            <EmptyState title="No meal plans yet">
-              Build your first plan with “+ New plan”, save it as a draft, then publish it to a
-              client when it’s ready.
-            </EmptyState>
-          )}
-
-          {plans.map((p) => (
+          {plans.map((p, i) => (
             <div
               key={p.plan_id}
               onClick={() => router.push(`/specialist/plans/${p.plan_id}`)}
-              className="cursor-pointer"
+              className="cursor-pointer transition-colors hover:bg-cream-deep"
             >
+              {i > 0 && <Hairline />}
               <div
-                className="grid items-center px-1 py-[18px]"
+                className="grid items-center px-5 py-[18px]"
                 style={{ gridTemplateColumns: "2.4fr 1fr 1.6fr 1.2fr 0.6fr" }}
               >
                 <span className="font-serif text-[16px] text-charcoal">{p.name}</span>
@@ -107,11 +112,12 @@ export default function MealPlansManagePage() {
                   </button>
                 </span>
               </div>
-              <Hairline />
             </div>
           ))}
-        </div>
-      </main>
+          </div>
+          </Card>
+          )}
+      </PageBody>
     </>
   );
 }

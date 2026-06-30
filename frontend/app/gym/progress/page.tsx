@@ -6,7 +6,9 @@ import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Hairline } from "@/components/ui/Hairline";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { PageBody, PageHeader } from "@/components/shell/Page";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { FormField, Input, FileInput } from "@/components/ui/Field";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
 import { listProgress, addProgress, listMilestones, uploadProgressPhoto } from "@/lib/api/gym";
@@ -172,65 +174,61 @@ export default function GymProgressPage() {
   return (
     <>
       <TopBar title="Progress" search="Search" avatarLetter="G" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>
-            Record your weight and body fat over time, celebrate milestones, and share a summary of
-            your progress. “Share latest” opens your device’s share sheet where supported.
-          </PageIntro>
-          <Label>Update progress</Label>
-          <form onSubmit={add} className="mt-4 flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-2">
-              <Label>Weight (kg)</Label>
-              <input
-                type="number" value={weight} onChange={(e) => setWeight(e.target.value)}
-                className="h-[42px] w-[160px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-              />
+      <PageBody>
+        <PageHeader eyebrow="Progress">
+          Record your weight and body fat over time, celebrate milestones, and share a summary of
+          your progress. “Share latest” opens your device’s share sheet where supported.
+        </PageHeader>
+          <Card>
+          <CardHeader eyebrow="Update progress" title="New check-in" />
+          <form onSubmit={add} className="mt-6 flex flex-col gap-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <FormField label="Weight (kg)">
+                <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} />
+              </FormField>
+              <FormField label="Body fat (%)">
+                <Input type="number" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} />
+              </FormField>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label>Body fat (%)</Label>
-              <input
-                type="number" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)}
-                className="h-[42px] w-[160px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Progress photo (optional)</Label>
-              <input type="file" accept="image/*" onChange={onPickPhoto} className="text-[13px]" />
+            <FormField label="Progress photo (optional)">
+              <FileInput accept="image/*" onChange={onPickPhoto} />
               {uploading && <Label>Uploading…</Label>}
               {photoUrl && <img src={photoUrl} alt="progress" className="mt-2 h-24 w-24 object-cover" />}
+            </FormField>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit" variant="dark" disabled={busy || uploading}>
+                {busy ? "Saving…" : "Add entry"}
+              </Button>
+              <Button type="button" variant="ghost" onClick={share}>Share latest</Button>
+              <Button type="button" variant="dark" onClick={shareToCommunity}>Share to community</Button>
+              <Button type="button" variant="ghost" onClick={downloadGraphic}>Download graphic</Button>
             </div>
-            <Button type="submit" variant="dark" disabled={busy || uploading}>
-              {busy ? "Saving…" : "Add entry"}
-            </Button>
-            <Button type="button" variant="ghost" onClick={share}>Share latest</Button>
-            <Button type="button" variant="dark" onClick={shareToCommunity}>Share to community</Button>
-            <Button type="button" variant="ghost" onClick={downloadGraphic}>Download graphic</Button>
           </form>
+          </Card>
           {error && <div className="mt-2 text-[13px] text-coral">{error}</div>}
           {shared && <div className="mt-2 text-[13px] text-good">{shared}</div>}
 
           {weightSeries.length > 0 && (
-            <div className="mt-6 border border-border bg-white p-5">
-              <Label>Weight trend</Label>
+            <Card className="mt-6">
+              <CardHeader eyebrow="Weight trend" />
               <div className="mt-4">
                 <BarChart data={weightSeries} scaleFromMin />
               </div>
-              <div className="mt-2 font-sans text-[11px] text-muted">
+              <div className="mt-3 font-sans text-[11px] text-muted">
                 Bars are scaled to your weight range so small changes are easy to see.
               </div>
-            </div>
+            </Card>
           )}
 
-          <div className="mt-9 grid grid-cols-2 gap-9">
-            <div>
-              <Label>History</Label>
-              <Hairline className="mt-2" />
+          <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <Card>
+              <CardHeader eyebrow="History" />
               {progress.loading && <div className="py-6"><Label>Loading…</Label></div>}
               {progress.error && <div className="py-6 text-[13px] text-coral">{progress.error}</div>}
               {!progress.loading && (progress.data ?? []).length === 0 && (
                 <div className="py-6"><Label>No entries yet</Label></div>
               )}
+              <div className="mt-3">
               {(progress.data ?? []).map((p, idx) => (
                 <div key={p.progress_id}>
                   <div className="flex items-center justify-between py-3">
@@ -252,11 +250,12 @@ export default function GymProgressPage() {
                   <Hairline />
                 </div>
               ))}
-            </div>
+              </div>
+            </Card>
 
-            <div>
-              <Label>Milestones</Label>
-              <Hairline className="mt-2" />
+            <Card>
+              <CardHeader eyebrow="Milestones" />
+              <div className="mt-3">
               {milestones.loading && <div className="py-6"><Label>Loading…</Label></div>}
               {!milestones.loading && (milestones.data ?? []).length === 0 && (
                 <div className="py-6"><Label>No milestones yet</Label></div>
@@ -272,10 +271,10 @@ export default function GymProgressPage() {
                   <Hairline />
                 </div>
               ))}
-            </div>
+              </div>
+            </Card>
           </div>
-        </div>
-      </main>
+      </PageBody>
     </>
   );
 }

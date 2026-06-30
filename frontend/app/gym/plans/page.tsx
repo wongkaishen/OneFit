@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Hairline } from "@/components/ui/Hairline";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { FormField, Input } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
@@ -110,37 +112,33 @@ export default function GymPlansPage() {
   return (
     <>
       <TopBar title="Workout plans" search="Search" avatarLetter="G" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>
-            Create workout plans for your own goals and see the meal plan your specialist assigned.
-            Once you have a plan, schedule its sessions on the calendar.
-          </PageIntro>
+      <PageBody>
+        <PageHeader eyebrow="Workout plans">
+          Create workout plans for your own goals and see the meal plan your specialist assigned.
+          Once you have a plan, schedule its sessions on the calendar.
+        </PageHeader>
           <Label>Meal plan from your specialist</Label>
-          <div className="mt-3">
+          <div className="mb-9 mt-3">
             {mealPlans.loading && <Label>Loading…</Label>}
             {mealPlans.error && <div className="text-[13px] text-coral">{mealPlans.error}</div>}
             {!mealPlans.loading && (mealPlans.data ?? []).length === 0 && (
-              <div className="mb-8 border border-border bg-white p-5">
-                <Label>No meal plan from your specialist yet.</Label>
-              </div>
+              <Card className="text-[13px] text-muted">No meal plan from your specialist yet.</Card>
             )}
             {(mealPlans.data ?? []).map((p) => (
               <MealPlanCard key={p.plan_id} plan={p} />
             ))}
           </div>
 
-          <Label>Create a plan</Label>
-          <form onSubmit={create} className="mt-4 flex items-end gap-3">
-            <div className="flex flex-1 flex-col gap-2">
-              <Label>Goal</Label>
-              <input
+          <Card>
+          <CardHeader eyebrow="Create a plan" title="New workout plan" />
+          <form onSubmit={create} className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+            <FormField label="Goal" className="flex-1">
+              <Input
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 placeholder="e.g. Build strength, 3x/week"
-                className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
               />
-            </div>
+            </FormField>
             <Button type="submit" variant="dark" disabled={busy || !goal.trim()}>
               {busy ? "Creating…" : "Create plan"}
             </Button>
@@ -148,10 +146,10 @@ export default function GymPlansPage() {
               {aiBusy ? "Generating…" : "Generate with AI"}
             </Button>
           </form>
-          {formErr && <div className="mt-2 text-[13px] text-coral">{formErr}</div>}
-          {aiMsg && <div className="mt-2 text-[13px] text-coral">{aiMsg}</div>}
+          {formErr && <div className="mt-3 text-[13px] text-coral">{formErr}</div>}
+          {aiMsg && <div className="mt-3 text-[13px] text-coral">{aiMsg}</div>}
           {aiPlan && (
-            <div className="mt-4 border border-coral bg-white p-5">
+            <div className="mt-5 border border-coral bg-coral-soft/40 p-5">
               <Label>AI proposed plan — {aiPlan.goal}</Label>
               {(aiPlan.days ?? []).map((d, i) => (
                 <div key={i} className="mt-3">
@@ -169,6 +167,7 @@ export default function GymPlansPage() {
               </div>
             </div>
           )}
+          </Card>
 
           <div className="mt-9">
             <Label>Your plans</Label>
@@ -217,7 +216,7 @@ export default function GymPlansPage() {
                   </div>
                 </div>
                 {openId === p.plan_id && (
-                  <div className="mb-4 border border-border bg-white p-5">
+                  <div className="mb-4 border border-border bg-cream-deep/50 p-5">
                     {exLoading && !exercises[p.plan_id] && <Label>Loading…</Label>}
                     {exercises[p.plan_id] && exercises[p.plan_id].length === 0 && (
                       <div className="font-sans text-[13px] text-muted">
@@ -240,8 +239,7 @@ export default function GymPlansPage() {
               </div>
             ))}
           </div>
-        </div>
-      </main>
+      </PageBody>
     </>
   );
 }

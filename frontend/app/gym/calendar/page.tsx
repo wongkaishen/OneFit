@@ -2,11 +2,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Hairline } from "@/components/ui/Hairline";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { FormField, Input, Select } from "@/components/ui/Field";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
 import { listSessions, scheduleSession, listPlans } from "@/lib/api/gym";
@@ -78,77 +81,71 @@ export default function GymCalendarPage() {
   return (
     <>
       <TopBar title="Calendar" search="Search" avatarLetter="G" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>
-            Schedule sessions from your workout plans and keep an eye on what’s coming up. Conflicting
-            time slots are blocked automatically.
-          </PageIntro>
-          <Label>Schedule a workout</Label>
+      <PageBody>
+        <PageHeader eyebrow="Calendar">
+          Schedule sessions from your workout plans and keep an eye on what’s coming up. Conflicting
+          time slots are blocked automatically.
+        </PageHeader>
 
+          <Card>
+          <CardHeader eyebrow="Schedule a workout" title="New session" />
           {planOptions.length === 0 && !plans.loading && (
             <div className="mt-3 text-[13px] text-muted">
               You need a plan first.{" "}
-              <Link href="/gym/plans" className="text-charcoal underline">Create one</Link>
+              <Link href="/gym/plans" className="font-medium text-coral hover:underline">Create one →</Link>
             </div>
           )}
 
-          <form onSubmit={submit} className="mt-4 flex items-end gap-3">
-            <div className="flex flex-col gap-2">
-              <Label>Plan</Label>
-              <select
-                value={effectivePlan}
-                onChange={(e) => setPlanId(e.target.value)}
-                className="h-[42px] w-[220px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-              >
+          <form onSubmit={submit} className="mt-6 grid grid-cols-1 items-end gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField label="Plan">
+              <Select value={effectivePlan} onChange={(e) => setPlanId(e.target.value)}>
                 {planOptions.map((p) => (
                   <option key={p.plan_id} value={p.plan_id}>{p.goal}</option>
                 ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Date</Label>
-              <input
-                type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Time</Label>
-              <input
-                type="time" value={time} onChange={(e) => setTime(e.target.value)}
-                className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-              />
-            </div>
-            <Button type="submit" variant="dark" disabled={busy}>
+              </Select>
+            </FormField>
+            <FormField label="Date">
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </FormField>
+            <FormField label="Time">
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            </FormField>
+            <Button type="submit" variant="dark" disabled={busy} fullWidth>
               {busy ? "Scheduling…" : "Schedule"}
             </Button>
           </form>
-          {error && <div className="mt-2 text-[13px] text-coral">{error}</div>}
-          {saved && <div className="mt-2 text-[13px] text-good">{saved}</div>}
+          {error && <div className="mt-3 text-[13px] text-coral">{error}</div>}
+          {saved && <div className="mt-3 text-[13px] text-good">{saved}</div>}
+          </Card>
 
           <div className="mt-9">
             <Label>Upcoming sessions</Label>
-            <Hairline className="mt-2" />
+            <div className="mt-3">
             {sessions.loading && <div className="py-6"><Label>Loading…</Label></div>}
             {sessions.error && <div className="py-6 text-[13px] text-coral">{sessions.error}</div>}
             {!sessions.loading && sorted.length === 0 && (
-              <div className="py-6"><Label>Nothing scheduled</Label></div>
+              <EmptyState title="Nothing scheduled" icon="calendar">
+                Schedule a session above and it will show up here.
+              </EmptyState>
             )}
-            {sorted.map((s) => (
+            {sorted.length > 0 && (
+            <Card padded={false}>
+            {sorted.map((s, i) => (
               <div key={s.session_id}>
-                <div className="flex items-center justify-between py-4">
+                {i > 0 && <Hairline />}
+                <div className="flex items-center justify-between px-5 py-4">
                   <span className="font-sans text-[14px] text-charcoal">
                     {s.scheduled_date} · {s.scheduled_time.slice(0, 5)}
                   </span>
                   {(() => { const d = displayStatus(s); return <Badge tone={d.tone}>{d.label}</Badge>; })()}
                 </div>
-                <Hairline />
               </div>
             ))}
+            </Card>
+            )}
+            </div>
           </div>
-        </div>
-      </main>
+      </PageBody>
     </>
   );
 }

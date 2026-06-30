@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Hairline } from "@/components/ui/Hairline";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Field";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
 import { mfaEnroll, mfaVerify } from "@/lib/api/auth";
@@ -37,35 +39,36 @@ export default function AdminSecurityPage() {
   return (
     <>
       <TopBar title="Security" search="Search" avatarLetter="A" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>Enable two-factor authentication and review login activity.</PageIntro>
+      <PageBody>
+        <PageHeader eyebrow="Security">Enable two-factor authentication and review login activity.</PageHeader>
 
           <Label>Two-factor authentication</Label>
-          <div className="mt-3 border border-border bg-white p-5">
+          <Card className="mt-3">
             {!enroll ? (
               <Button type="button" variant="dark" onClick={startEnroll}>Set up 2FA</Button>
             ) : (
               <div className="flex flex-col gap-3">
-                {enroll.qr_code && <img src={enroll.qr_code} alt="2FA QR" className="h-44 w-44" />}
+                {enroll.qr_code && <img src={enroll.qr_code} alt="2FA QR" className="h-44 w-44 border border-border" />}
                 <div className="text-[12px] text-muted">Secret: {enroll.secret}</div>
                 <div className="flex items-end gap-3">
-                  <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code"
-                    className="h-[42px] border border-border px-3 text-[14px] outline-none focus:border-charcoal" />
+                  <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code" className="sm:max-w-[200px]" />
                   <Button type="button" variant="dark" onClick={verify}>Verify</Button>
                 </div>
               </div>
             )}
             {msg && <div className="mt-2 text-[13px] text-good">{msg}</div>}
-          </div>
+          </Card>
 
           <div className="mt-9">
             <Label>Recent login activity</Label>
-            <Hairline className="mt-2" />
+            <div className="mt-3">
             {events.loading && <div className="py-6"><Label>Loading…</Label></div>}
-            {(events.data ?? []).map((ev) => (
+            {(events.data ?? []).length > 0 && (
+            <Card padded={false}>
+            {(events.data ?? []).map((ev, i) => (
               <div key={ev.event_id}>
-                <div className="flex items-center justify-between py-3">
+                {i > 0 && <Hairline />}
+                <div className="flex items-center justify-between gap-3 px-5 py-3">
                   <div>
                     <div className="font-sans text-[14px] text-charcoal">{ev.email} · {ev.ip ?? "—"}</div>
                     <div className="font-sans text-[11px] text-muted">{shortDate(ev.created_at)}</div>
@@ -75,12 +78,13 @@ export default function AdminSecurityPage() {
                     <Badge tone={ev.success ? "good" : "neutral"}>{ev.success ? "success" : "failed"}</Badge>
                   </div>
                 </div>
-                <Hairline />
               </div>
             ))}
+            </Card>
+            )}
+            </div>
           </div>
-        </div>
-      </main>
+      </PageBody>
     </>
   );
 }

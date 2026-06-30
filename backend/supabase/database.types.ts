@@ -605,19 +605,16 @@ export type Database = {
       }
       wellness_specialists: {
         Row: {
-          approval_status: Database["public"]["Enums"]["specialist_approval"]
           certification_doc: string | null
           specialization: string
           user_id: string
         }
         Insert: {
-          approval_status?: Database["public"]["Enums"]["specialist_approval"]
           certification_doc?: string | null
           specialization: string
           user_id: string
         }
         Update: {
-          approval_status?: Database["public"]["Enums"]["specialist_approval"]
           certification_doc?: string | null
           specialization?: string
           user_id?: string
@@ -771,7 +768,6 @@ export type Database = {
         | "Removed"
         | "Escalated"
       session_status: "scheduled" | "completed" | "missed"
-      specialist_approval: "pending" | "approved" | "rejected"
       task_status:
         | "Assigned"
         | "InProgress"
@@ -929,7 +925,6 @@ export const Constants = {
         "Escalated",
       ],
       session_status: ["scheduled", "completed", "missed"],
-      specialist_approval: ["pending", "approved", "rejected"],
       task_status: [
         "Assigned",
         "InProgress",

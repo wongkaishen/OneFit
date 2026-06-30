@@ -1,10 +1,11 @@
 "use client";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Hairline } from "@/components/ui/Hairline";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
@@ -29,24 +30,28 @@ export default function AdminRegistrationsPage() {
 
   return (
     <>
-      <TopBar title="Pending registrations" search="Search" avatarLetter="A" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>Approve or reject members and specialists awaiting access. Approving activates the account; rejecting suspends it.</PageIntro>
-          <Hairline className="mt-2" />
+      <TopBar title="Specialist approvals" search="Search" avatarLetter="A" />
+      <PageBody>
+        <PageHeader eyebrow="Specialist approvals">
+          Approve or reject wellness specialists awaiting access. Approving activates the account;
+          rejecting suspends it. Gym members confirm their own email and don&apos;t need approval.
+        </PageHeader>
           {loading && <div className="py-6"><Label>Loading…</Label></div>}
           {error && <div className="py-6 text-[13px] text-coral">{error}</div>}
           {!loading && !error && (data ?? []).length === 0 && (
-            <EmptyState title="No pending registrations">Everyone is approved.</EmptyState>
+            <EmptyState title="No pending registrations" icon="approvals">Everyone is approved.</EmptyState>
           )}
-          {(data ?? []).map((u) => (
+          {(data ?? []).length > 0 && (
+          <Card padded={false}>
+          {(data ?? []).map((u, i) => (
             <div key={u.user_id}>
-              <div className="flex items-center justify-between py-4">
+              {i > 0 && <Hairline />}
+              <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="font-sans text-[14px] text-charcoal">{u.name ?? u.email}</div>
                   <div className="mt-1 font-sans text-[11px] text-muted">{u.email} · {u.role}</div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="neutral">{u.status}</Badge>
                   {u.role === "wellness_specialist" && (
                     <Button type="button" variant="ghost" onClick={async () => {
@@ -62,11 +67,11 @@ export default function AdminRegistrationsPage() {
                   <Button type="button" variant="ghost" onClick={() => decide(u.user_id, "reject")}>Reject</Button>
                 </div>
               </div>
-              <Hairline />
             </div>
           ))}
-        </div>
-      </main>
+          </Card>
+          )}
+      </PageBody>
     </>
   );
 }

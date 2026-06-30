@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody } from "@/components/shell/Page";
 import { Avatar } from "@/components/shell/Avatar";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
@@ -9,6 +10,8 @@ import { Chip } from "@/components/ui/Chip";
 import { Badge } from "@/components/ui/Badge";
 import { Progress } from "@/components/ui/Progress";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { FormField, Input } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { useSession } from "@/lib/auth/session";
@@ -89,12 +92,11 @@ export default function ClientListPage() {
   return (
     <>
       <TopBar title="Clients" search="Search clients" avatarLetter={avatarLetter} />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <div className="mb-[22px] flex items-end justify-between">
+      <PageBody>
+          <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <Label>Your roster · {data?.length ?? 0} active</Label>
-              <div className="mt-2 whitespace-nowrap font-serif text-[26px] text-charcoal">
+              <div className="mt-2 font-serif text-[28px] leading-tight text-charcoal">
                 {firstName ? `Good to see you, ${firstName}.` : "Good to see you."}
               </div>
             </div>
@@ -104,37 +106,46 @@ export default function ClientListPage() {
           </div>
 
           {adding && (
-            <form onSubmit={submitAdd} className="mb-[18px] flex items-center gap-3">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="client@email.com"
-                className="h-[38px] w-[280px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-              />
-              <Button type="submit" size="sm" disabled={addBusy}>
-                {addBusy ? "Adding…" : "Add to roster"}
-              </Button>
-              <span className="font-sans text-[12px] text-muted">
+            <Card className="mb-5">
+              <form onSubmit={submitAdd} className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+                <FormField label="Client email" className="flex-1">
+                  <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="client@email.com" />
+                </FormField>
+                <Button type="submit" size="md" disabled={addBusy}>
+                  {addBusy ? "Adding…" : "Add to roster"}
+                </Button>
+              </form>
+              <div className="mt-2 font-sans text-[12px] text-muted">
                 Adds an existing gym user by their account email.
-              </span>
-            </form>
+              </div>
+            </Card>
           )}
           {addErr && <div className="mb-3 font-sans text-[13px] text-coral">{addErr}</div>}
 
-          <div className="mb-2 flex gap-[10px]">
+          <div className="mb-3 flex flex-wrap gap-[10px]">
             {FILTERS.map((f) => (
               <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>
             ))}
           </div>
-          <div className="mb-[18px] font-sans text-[11px] text-muted">
+          <div className="mb-4 font-sans text-[11px] text-muted">
             “At risk” / the Alerts column flags clients who haven’t logged any activity for 5+ days,
             so you know who to check in on.
           </div>
 
+          {loading && <div className="py-8"><Label>Loading…</Label></div>}
+          {error && <div className="py-8 text-[13px] text-coral">{error}</div>}
+          {!loading && !error && rows.length === 0 && (
+            <EmptyState title="No clients yet" icon="clients">
+              Add your first client by their account email with “+ Add client” above. They’ll be
+              notified and appear here.
+            </EmptyState>
+          )}
+
+          {rows.length > 0 && (
+          <Card padded={false} className="overflow-x-auto">
+          <div className="min-w-[760px]">
           <div
-            className="grid items-center px-1 pb-3"
+            className="grid items-center px-5 pt-4 pb-3"
             style={{ gridTemplateColumns: "2fr 1fr 1.4fr 1.6fr 1.6fr" }}
           >
             {["Client", "Last active", "Current goal", "Progress", "Alerts"].map((h) => (
@@ -143,23 +154,15 @@ export default function ClientListPage() {
           </div>
           <Hairline />
 
-          {loading && <div className="py-8"><Label>Loading…</Label></div>}
-          {error && <div className="py-8 text-[13px] text-coral">{error}</div>}
-          {!loading && !error && rows.length === 0 && (
-            <EmptyState title="No clients yet">
-              Add your first client by their account email with “+ Add client” above. They’ll be
-              notified and appear here.
-            </EmptyState>
-          )}
-
-          {rows.map(({ c, d }) => (
+          {rows.map(({ c, d }, i) => (
             <div
               key={c.user_id}
               onClick={() => router.push(`/specialist/clients/${c.user_id}`)}
-              className="cursor-pointer"
+              className="cursor-pointer transition-colors hover:bg-cream-deep"
             >
+              {i > 0 && <Hairline />}
               <div
-                className="grid items-center px-1 py-[18px]"
+                className="grid items-center px-5 py-[18px]"
                 style={{ gridTemplateColumns: "2fr 1fr 1.4fr 1.6fr 1.6fr" }}
               >
                 <div className="flex items-center gap-3">
@@ -173,7 +176,7 @@ export default function ClientListPage() {
                   <span className="font-sans text-[13px] font-semibold text-charcoal">{d.pct}%</span>
                 </div>
                 <span className="flex items-center justify-between gap-3">
-                  {d.alert ? <Badge tone="warn">{d.alert}</Badge> : <span className="text-[12px] text-border">—</span>}
+                  {d.alert ? <Badge tone="warn">{d.alert}</Badge> : <span className="text-[12px] text-border-strong">—</span>}
                   <button
                     type="button"
                     onClick={(e) => remove(e, c)}
@@ -183,11 +186,12 @@ export default function ClientListPage() {
                   </button>
                 </span>
               </div>
-              <Hairline />
             </div>
           ))}
-        </div>
-      </main>
+          </div>
+          </Card>
+          )}
+      </PageBody>
     </>
   );
 }

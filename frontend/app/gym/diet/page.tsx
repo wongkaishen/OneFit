@@ -3,7 +3,9 @@ import { useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { PageBody, PageHeader } from "@/components/shell/Page";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { FormField, Input, Select } from "@/components/ui/Field";
 import { ApiError } from "@/lib/api/client";
 import { logDiet, listMealPlans } from "@/lib/api/gym";
 import { searchNutrition } from "@/lib/api/ai";
@@ -89,64 +91,48 @@ export default function GymDietPage() {
   const field = (
     label: string, value: string, set: (v: string) => void, type = "number", placeholder = "",
   ) => (
-    <div className="flex flex-col gap-2">
-      <Label>{label}</Label>
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => set(e.target.value)}
-        className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-      />
-    </div>
+    <FormField label={label}>
+      <Input type={type} value={value} placeholder={placeholder} onChange={(e) => set(e.target.value)} />
+    </FormField>
   );
 
   return (
     <>
       <TopBar title="Log diet" search="Search" avatarLetter="G" />
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-[560px] px-9 py-[30px]">
-          <PageIntro>
-            Log what you eat and follow your assigned meal plan. Calories you log are subtracted from
-            your daily balance on the dashboard.
-          </PageIntro>
+      <PageBody max="form">
+        <PageHeader eyebrow="Diet">
+          Log what you eat and follow your assigned meal plan. Calories you log are subtracted from
+          your daily balance on the dashboard.
+        </PageHeader>
           <Label>Your meal plan</Label>
-          <div className="mt-3">
+          <div className="mb-8 mt-3">
             {mealPlans.loading && <Label>Loading…</Label>}
             {mealPlans.error && <div className="text-[13px] text-coral">{mealPlans.error}</div>}
             {!mealPlans.loading && (mealPlans.data ?? []).length === 0 && (
-              <div className="mb-5 border border-border bg-white p-5">
-                <Label>No meal plan from your specialist yet.</Label>
-              </div>
+              <Card className="text-[13px] text-muted">No meal plan from your specialist yet.</Card>
             )}
             {(mealPlans.data ?? []).map((p) => (
               <MealPlanCard key={p.plan_id} plan={p} />
             ))}
           </div>
 
-          <Label>Dietary intake</Label>
-          <div className="mb-6 flex items-end gap-3">
-            <div className="flex flex-1 flex-col gap-2">
-              <Label>Search a food (AI)</Label>
-              <input value={foodQuery} onChange={(e) => setFoodQuery(e.target.value)} placeholder="e.g. 1 banana"
-                className="h-[42px] border border-border bg-white px-3 text-[14px] outline-none focus:border-charcoal" />
-            </div>
+          <Card>
+          <CardHeader eyebrow="Dietary intake" title="Log a meal" />
+          <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+            <FormField label="Search a food (AI)" className="flex-1">
+              <Input value={foodQuery} onChange={(e) => setFoodQuery(e.target.value)} placeholder="e.g. 1 banana" />
+            </FormField>
             <Button type="button" variant="ghost" disabled={searching} onClick={lookup}>{searching ? "Searching…" : "Look up"}</Button>
           </div>
-          {searchMsg && <div className="mb-2 text-[13px] text-coral">{searchMsg}</div>}
-          <form onSubmit={submit} className="mt-5 flex flex-col gap-5">
-            <div className="flex flex-col gap-2">
-              <Label>Meal</Label>
-              <select
-                value={mealTime}
-                onChange={(e) => setMealTime(e.target.value)}
-                className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-              >
+          {searchMsg && <div className="mt-3 text-[13px] text-coral">{searchMsg}</div>}
+          <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
+            <FormField label="Meal">
+              <Select value={mealTime} onChange={(e) => setMealTime(e.target.value)}>
                 {MEALS.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
+              </Select>
+            </FormField>
             {field("Food item", foodItem, setFoodItem, "text", "e.g. Chicken salad")}
-            <div className="grid grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {field("Calories", calories, setCalories)}
               {field("Protein (g)", protein, setProtein)}
               {field("Carbs (g)", carbs, setCarbs)}
@@ -163,8 +149,8 @@ export default function GymDietPage() {
               </Button>
             </div>
           </form>
-        </div>
-      </main>
+          </Card>
+      </PageBody>
     </>
   );
 }

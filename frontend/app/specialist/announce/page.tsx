@@ -1,10 +1,12 @@
 "use client";
 import { useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { FormField, Input, Textarea } from "@/components/ui/Field";
 import { ApiError } from "@/lib/api/client";
 import { sendSpecialistAnnouncement } from "@/lib/api/specialist";
 
@@ -45,18 +47,18 @@ export default function SpecialistAnnouncePage() {
   return (
     <>
       <TopBar title="Announce" search="Search" avatarLetter="S" />
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-[560px] px-9 py-[30px]">
-          <Label>Broadcast to members</Label>
-          <PageIntro>
-            Send a one-off message to your members. Each recipient in the chosen audience gets it as
-            a notification in their inbox.
-          </PageIntro>
+      <PageBody max="form">
+        <PageHeader eyebrow="Broadcast to members">
+          Send a one-off message to your members. Each recipient in the chosen audience gets it as
+          a notification in their inbox.
+        </PageHeader>
 
+          <Card>
+          <CardHeader eyebrow="New announcement" title="Compose" />
           <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <Label>Audience</Label>
-              <div className="flex gap-[10px]">
+              <div className="flex flex-wrap gap-[10px]">
                 {AUDIENCES.map((a) => (
                   <Chip key={a.value} active={audience === a.value} onClick={() => setAudience(a.value)}>
                     {a.label}
@@ -65,25 +67,13 @@ export default function SpecialistAnnouncePage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label>Title</Label>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. New mindfulness series this week"
-                className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-              />
-            </div>
+            <FormField label="Title">
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. New mindfulness series this week" />
+            </FormField>
 
-            <div className="flex flex-col gap-2">
-              <Label>Message (optional)</Label>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={4}
-                className="border border-border bg-white px-3 py-2 text-[14px] text-charcoal outline-none focus:border-charcoal"
-              />
-            </div>
+            <FormField label="Message (optional)">
+              <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} />
+            </FormField>
 
             {error && <div className="text-[13px] text-coral">{error}</div>}
             {sent && <div className="text-[13px] text-good">{sent}</div>}
@@ -94,8 +84,8 @@ export default function SpecialistAnnouncePage() {
               </Button>
             </div>
           </form>
-        </div>
-      </main>
+          </Card>
+      </PageBody>
     </>
   );
 }

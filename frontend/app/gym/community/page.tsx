@@ -2,10 +2,12 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/shell/TopBar";
-import { Label } from "@/components/ui/Label";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Button } from "@/components/ui/Button";
-import { Hairline } from "@/components/ui/Hairline";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Chip } from "@/components/ui/Chip";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Field";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { gymListGroups, gymListPosts, gymCreatePost } from "@/lib/api/gym";
 import type { CommunityGroup, CommunityPost } from "@/lib/api/types";
@@ -39,40 +41,48 @@ export default function GymCommunityPage() {
   return (
     <>
       <TopBar title="Community" search="Search" avatarLetter="G" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>Share your progress and connect with other members.</PageIntro>
+      <PageBody max="form">
+        <PageHeader eyebrow="Community">Share your progress and connect with other members.</PageHeader>
           <div className="flex flex-wrap gap-2">
             {(groups.data ?? []).map((g) => (
-              <Button key={g.group_id} type="button" variant={active === g.group_id ? "dark" : "ghost"}
-                onClick={() => setActive(g.group_id)}>{g.name}</Button>
+              <Chip key={g.group_id} active={active === g.group_id} onClick={() => setActive(g.group_id)}>
+                {g.name}
+              </Chip>
             ))}
           </div>
-          {!active && <div className="mt-4"><Label>Select a group to view posts.</Label></div>}
-          {active && (
+          {!active && (
             <div className="mt-6">
-              <div className="flex items-end gap-3">
-                <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Share something…"
-                  className="h-[42px] flex-1 border border-border px-3 text-[14px] outline-none focus:border-charcoal" />
-                <Button type="button" variant="dark" onClick={post}>Post</Button>
-              </div>
-              <Hairline className="mt-4" />
-              {postsError && (
-                <div className="mt-4 text-[14px] text-coral">{postsError}</div>
-              )}
-              {posts.length === 0 && !postsError && (
-                <div className="mt-4"><Label>No posts yet. Be the first to share!</Label></div>
-              )}
-              {posts.map((p) => (
-                <div key={p.post_id}>
-                  <div className="py-4 font-sans text-[14px] text-charcoal">{p.content}</div>
-                  <Hairline />
-                </div>
-              ))}
+              <EmptyState title="Select a group" icon="community">
+                Pick a group above to view and share posts.
+              </EmptyState>
             </div>
           )}
-        </div>
-      </main>
+          {active && (
+            <div className="mt-6">
+              <Card>
+                <div className="flex items-end gap-3">
+                  <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Share something…" />
+                  <Button type="button" variant="dark" onClick={post}>Post</Button>
+                </div>
+              </Card>
+              {postsError && <div className="mt-4 text-[14px] text-coral">{postsError}</div>}
+              {posts.length === 0 && !postsError && (
+                <div className="mt-6">
+                  <EmptyState title="No posts yet" icon="community">Be the first to share something with this group.</EmptyState>
+                </div>
+              )}
+              {posts.length > 0 && (
+                <div className="mt-5 space-y-3">
+                  {posts.map((p) => (
+                    <Card key={p.post_id} className="font-sans text-[14px] leading-relaxed text-charcoal">
+                      {p.content}
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+      </PageBody>
     </>
   );
 }

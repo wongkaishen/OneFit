@@ -2,9 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Chip } from "@/components/ui/Chip";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Progress } from "@/components/ui/Progress";
 import { useResource } from "@/lib/api/useResource";
 import { useSession } from "@/lib/auth/session";
@@ -57,30 +60,25 @@ export default function GymMealPlansPage() {
   return (
     <>
       <TopBar title="Meal Plans" search="Search" avatarLetter={avatarLetter} />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <Label>Plans from your wellness specialist</Label>
-          <div className="mt-1 max-w-[560px] font-sans text-[13px] leading-relaxed text-muted">
-            Meal plans your specialist publishes to you appear here. Pick a plan, then a day, to
-            see each meal and its calories.
-          </div>
+      <PageBody>
+        <PageHeader eyebrow="Plans from your wellness specialist">
+          Meal plans your specialist publishes to you appear here. Pick a plan, then a day, to
+          see each meal and its calories.
+        </PageHeader>
 
           {loading && <div className="py-8"><Label>Loading…</Label></div>}
           {error && <div className="py-8 text-[13px] text-coral">{error}</div>}
           {!loading && !error && plans.length === 0 && (
-            <div className="mt-8 border border-dashed border-muted px-6 py-10 text-center">
-              <div className="font-serif text-[18px] text-charcoal">No meal plans yet</div>
-              <div className="mx-auto mt-2 max-w-[360px] font-sans text-[13px] text-muted">
-                When your wellness specialist publishes a plan to you, it will show up here and
-                you’ll get a notification.
-              </div>
-            </div>
+            <EmptyState title="No meal plans yet" icon="meals">
+              When your wellness specialist publishes a plan to you, it will show up here and
+              you’ll get a notification.
+            </EmptyState>
           )}
 
           {!loading && !error && plans.length > 0 && (
-            <div className="mt-7 grid gap-9" style={{ gridTemplateColumns: "300px 1fr" }}>
+            <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
               {/* Plan list */}
-              <div>
+              <Card padded={false} className="h-fit p-5">
                 <Label>Your plans · {plans.length}</Label>
                 <Hairline className="mt-2" />
                 {plans.map((p) => {
@@ -107,10 +105,10 @@ export default function GymMealPlansPage() {
                     </div>
                   );
                 })}
-              </div>
+              </Card>
 
               {/* Selected plan detail */}
-              <div>
+              <Card className="min-w-0">
                 {selected && (
                   <>
                     <div className="flex items-end justify-between">
@@ -175,11 +173,10 @@ export default function GymMealPlansPage() {
                     )}
                   </>
                 )}
-              </div>
+              </Card>
             </div>
           )}
-        </div>
-      </main>
+      </PageBody>
     </>
   );
 }

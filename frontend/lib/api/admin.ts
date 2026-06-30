@@ -1,5 +1,9 @@
 import { request } from "./client";
-import type { AdminStats, AnnouncementIn, AnnouncementOut, AuditEntry, LoginEventOut, UserOut, ProgramOut, AdminUserActivity } from "./types";
+import type {
+  AdminStats, AnnouncementIn, AnnouncementOut, AuditEntry, LoginEventOut, UserOut,
+  ProgramOut, AdminUserActivity, AdminCommunityGroup, AdminCommunityPost,
+  AdminPlanOut, AdminPlanDetail,
+} from "./types";
 
 export const listUsers = () => request<UserOut[]>("/admin/users");
 export const setUserStatus = (id: string, status: string) =>
@@ -44,3 +48,29 @@ export const getSpecialistCredential = (id: string) =>
 
 export const listLoginEvents = (failuresOnly = false, hours = 24) =>
   request<LoginEventOut[]>(`/admin/login-events?failures_only=${failuresOnly}&hours=${hours}`);
+
+// --- Community oversight ---
+export const adminListGroups = () =>
+  request<AdminCommunityGroup[]>("/admin/community/groups");
+export const adminListGroupPosts = (groupId: string) =>
+  request<AdminCommunityPost[]>(`/admin/community/groups/${groupId}/posts`);
+export const adminUpdatePost = (postId: string, body: { content?: string; status?: string }) =>
+  request<AdminCommunityPost>(`/admin/community/posts/${postId}`, {
+    method: "PATCH", body: JSON.stringify(body),
+  });
+export const adminDeletePost = (postId: string) =>
+  request<{ deleted: boolean; post_id: string }>(`/admin/community/posts/${postId}`, {
+    method: "DELETE",
+  });
+
+// --- Program/plan management ---
+export const adminListAllPrograms = (statusFilter?: string) =>
+  request<AdminPlanOut[]>(
+    `/admin/programs/all${statusFilter ? `?status_filter=${statusFilter}` : ""}`,
+  );
+export const adminProgramDetail = (planId: string) =>
+  request<AdminPlanDetail>(`/admin/programs/${planId}/detail`);
+export const adminUpdateProgram = (planId: string, body: { goal?: string; status?: string }) =>
+  request<AdminPlanOut>(`/admin/programs/${planId}`, {
+    method: "PATCH", body: JSON.stringify(body),
+  });

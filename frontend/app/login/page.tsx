@@ -1,20 +1,38 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Label } from "@/components/ui/Label";
+import { Card } from "@/components/ui/Card";
+import { FormField, Input } from "@/components/ui/Field";
 import { ApiError } from "@/lib/api/client";
 import { login, me } from "@/lib/api/auth";
 import { setToken, clearToken, roleHome } from "@/lib/auth/session";
 
 export default function LoginPage() {
+  // useSearchParams must sit under a Suspense boundary for static prerendering.
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-cream" />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // OAuth/callback bounces a blocked account back here with a reason to show.
+  useEffect(() => {
+    if (params.get("reason") === "suspended") {
+      setError("Your account has been suspended. Contact an administrator.");
+    }
+  }, [params]);
 
   const oauth = () => {
     const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -32,22 +50,26 @@ export default function LoginPage() {
       const tokens = await login(email, password);
       setToken(tokens.access_token);
       const user = await me();
-      if (user.status === "pending") {
-        clearToken();
-        setNotice("Your account is awaiting admin approval.");
-        return;
-      }
       if (user.status === "suspended") {
         clearToken();
         setError("Your account has been suspended. Contact an administrator.");
         return;
       }
+      if (user.status === "pending") {
+        // Keep the session: the pending screen lets them upload credentials.
+        router.replace("/pending-approval");
+        return;
+      }
       router.replace(roleHome(user.role));
     } catch (err) {
       clearToken();
-      // GoTrue returns 400 for bad credentials.
+      // GoTrue returns 400 for bad credentials and for unconfirmed emails.
       if (err instanceof ApiError && err.status === 400) {
-        setError("Invalid email or password.");
+        if (/confirm/i.test(err.message)) {
+          setNotice("Please confirm your email address — check your inbox for the confirmation link.");
+        } else {
+          setError("Invalid email or password.");
+        }
       } else {
         setError(err instanceof ApiError ? err.message : "Sign-in failed. Try again.");
       }
@@ -57,50 +79,40 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-cream px-6 font-sans">
-      <div className="w-full max-w-[380px]">
-        <div className="mb-9 flex items-center gap-[9px]">
-          <span className="h-3 w-3 bg-warm-red" />
-          <span className="text-[17px] font-medium tracking-tight text-charcoal">onefit</span>
+    <main className="flex min-h-screen items-center justify-center bg-cream px-6 py-10 font-sans">
+      <div className="w-full max-w-[400px] animate-fade-in">
+        <div className="mb-8 flex items-center gap-2.5">
+          <span className="flex h-8 w-8 flex-none items-center justify-center bg-warm-red">
+            <span className="h-2.5 w-2.5 bg-cream" />
+          </span>
+          <span className="font-serif text-[22px] leading-none text-charcoal">onefit</span>
         </div>
 
-        <h1 className="font-serif text-[28px] leading-tight text-charcoal">Welcome back</h1>
-        <p className="mt-1 text-[13px] text-muted">Sign in to your OneFit account.</p>
+        <h1 className="font-serif text-[30px] leading-tight text-charcoal">Welcome back</h1>
+        <p className="mt-1.5 text-[13px] text-muted">Sign in to your OneFit account.</p>
 
-        <form onSubmit={submit} className="mt-8 flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <Label>Email</Label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Password</Label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-            />
-          </div>
+        <Card className="mt-7">
+        <form onSubmit={submit} className="flex flex-col gap-5">
+          <FormField label="Email">
+            <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
+          </FormField>
+          <FormField label="Password">
+            <Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+          </FormField>
 
           {error && <div className="text-[13px] text-coral">{error}</div>}
           {notice && <div className="text-[13px] text-charcoal">{notice}</div>}
 
-          <Button type="submit" variant="dark" disabled={busy}>
+          <Button type="submit" variant="dark" disabled={busy} fullWidth>
             {busy ? "Signing in…" : "Sign in"}
           </Button>
-          <Button type="button" variant="ghost" onClick={oauth}>Continue with Google</Button>
+          <Button type="button" variant="ghost" onClick={oauth} fullWidth>Continue with Google</Button>
         </form>
+        </Card>
 
-        <p className="mt-6 text-[13px] text-muted">
+        <p className="mt-6 text-center text-[13px] text-muted">
           New to OneFit?{" "}
-          <Link href="/register" className="text-charcoal underline">
+          <Link href="/register" className="font-medium text-coral hover:underline">
             Create an account
           </Link>
         </p>

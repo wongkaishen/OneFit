@@ -17,7 +17,7 @@ export default function EditMealPlanPage() {
       <>
         <TopBar title="Plans" search="Search" avatarLetter="?" />
         <main className="flex-1 overflow-auto">
-          <div className="px-9 py-[30px]">
+          <div className="px-5 sm:px-7 lg:px-9 py-7 lg:py-[30px]">
             {loading && <Label>Loading…</Label>}
             {error && <div className="text-[13px] text-coral">{error}</div>}
             {!loading && !error && !plan && <Label>Plan not found.</Label>}

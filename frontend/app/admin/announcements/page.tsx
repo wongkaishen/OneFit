@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { FormField, Input, Textarea, Select } from "@/components/ui/Field";
 import { useResource } from "@/lib/api/useResource";
 import { listAnnouncements, createAnnouncement } from "@/lib/api/admin";
 import { relativeTime } from "@/lib/format";
@@ -47,56 +49,61 @@ export default function AnnouncementsPage() {
 
   return (
     <>
-      <TopBar title="Announcements" search="Search" avatarLetter="S" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>
-            Publish platform-wide announcements. Each one is delivered as a notification to its
-            target audience the moment you send it.
-          </PageIntro>
-          <div className="mb-8 border border-border bg-white p-6">
-            <Label>New announcement</Label>
-            <input placeholder="Title" value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="mt-3 w-full border border-border bg-white p-2 font-sans text-[13px] outline-none" />
-            <textarea placeholder="Body" value={form.body}
-              onChange={(e) => setForm({ ...form, body: e.target.value })}
-              className="mt-3 h-24 w-full resize-none border border-border bg-white p-2 font-sans text-[13px] outline-none" />
-            <div className="mt-3 flex items-center gap-3">
-              <select value={form.target_audience}
-                onChange={(e) => setForm({ ...form, target_audience: e.target.value })}
-                className="h-[34px] border border-border bg-white px-2 font-sans text-[12px]">
-                {AUDIENCES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-              </select>
-              <Button size="sm" onClick={submit} disabled={busy}>{busy ? "Sending…" : "Send announcement"}</Button>
+      <TopBar title="Announcements" search="Search" avatarLetter="A" />
+      <PageBody>
+        <PageHeader eyebrow="Announcements">
+          Publish platform-wide announcements. Each one is delivered as a notification to its
+          target audience the moment you send it.
+        </PageHeader>
+          <Card className="mb-8">
+            <CardHeader eyebrow="New announcement" title="Compose" />
+            <div className="mt-6 flex flex-col gap-4">
+              <FormField label="Title">
+                <Input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              </FormField>
+              <FormField label="Body">
+                <Textarea placeholder="Write the announcement…" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
+              </FormField>
+              <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+                <FormField label="Audience" className="sm:max-w-[280px] sm:flex-1">
+                  <Select value={form.target_audience} onChange={(e) => setForm({ ...form, target_audience: e.target.value })}>
+                    {AUDIENCES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                  </Select>
+                </FormField>
+                <Button onClick={submit} disabled={busy}>{busy ? "Sending…" : "Send announcement"}</Button>
+              </div>
+              {err && <div className="font-sans text-[12px] text-coral">{err}</div>}
+              {ok && <div className="font-sans text-[12px] text-good">{ok}</div>}
             </div>
-            {err && <div className="mt-3 font-sans text-[12px] text-coral">{err}</div>}
-            {ok && <div className="mt-3 font-sans text-[12px] text-good">{ok}</div>}
-          </div>
+          </Card>
 
           <Label>Sent announcements</Label>
-          <Hairline className="mt-3" />
+          <div className="mt-3">
           {loading && <div className="py-6"><Label>Loading…</Label></div>}
           {error && <div className="py-6 text-[13px] text-coral">{error}</div>}
           {!loading && (data ?? []).length === 0 && <div className="py-6"><Label>None yet</Label></div>}
-          {(data ?? []).map((a) => (
+          {(data ?? []).length > 0 && (
+          <Card padded={false}>
+          {(data ?? []).map((a, i) => (
             <div key={a.announcement_id}>
-              <div className="flex items-start justify-between py-4">
+              {i > 0 && <Hairline />}
+              <div className="flex items-start justify-between gap-3 px-5 py-4">
                 <div>
                   <div className="font-sans text-[14px] font-semibold text-charcoal">{a.title}</div>
                   <div className="mt-1 font-sans text-[12px] text-muted">{a.body}</div>
                   <div className="mt-1 font-sans text-[11px] text-subtle">By {a.admin_name ?? "Admin"}</div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-none flex-col items-end gap-2">
                   <Badge tone="neutral">{a.target_audience}</Badge>
                   <Label>{relativeTime(a.sent_at)}</Label>
                 </div>
               </div>
-              <Hairline />
             </div>
           ))}
-        </div>
-      </main>
+          </Card>
+          )}
+          </div>
+      </PageBody>
     </>
   );
 }

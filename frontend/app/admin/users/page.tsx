@@ -1,12 +1,13 @@
 "use client";
 import { useMemo, useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Avatar } from "@/components/shell/Avatar";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Chip } from "@/components/ui/Chip";
 import { Badge } from "@/components/ui/Badge";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card } from "@/components/ui/Card";
 import { useResource } from "@/lib/api/useResource";
 import { listUsers, setUserStatus, getUserActivity } from "@/lib/api/admin";
 import { shortDate } from "@/lib/format";
@@ -97,15 +98,14 @@ export default function UserManagementPage() {
 
   return (
     <>
-      <TopBar title="User management" search="Search name or email" avatarLetter="S" searchValue={query} onSearch={setQuery} />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>
-            Manage member accounts — change a user’s role, and suspend or reactivate access.
-            Suspended users are blocked from the app immediately.
-          </PageIntro>
+      <TopBar title="User management" search="Search name or email" avatarLetter="A" searchValue={query} onSearch={setQuery} />
+      <PageBody>
+        <PageHeader eyebrow="User management">
+          Manage member accounts — change a user’s role, and suspend or reactivate access.
+          Suspended users are blocked from the app immediately.
+        </PageHeader>
           {pendingCount > 0 && (
-            <div className="mb-4 flex items-center justify-between border border-border bg-white px-4 py-3">
+            <div className="mb-4 flex items-center justify-between border border-coral-soft bg-coral-soft px-4 py-3">
               <span className="font-sans text-[13px] text-charcoal">
                 <b className="font-semibold">{pendingCount}</b> registration
                 {pendingCount === 1 ? "" : "s"} awaiting approval
@@ -116,7 +116,7 @@ export default function UserManagementPage() {
             </div>
           )}
 
-          <div className="mb-[18px] flex items-center justify-between">
+          <div className="mb-[18px] flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-[10px]">
               {ROLE_FILTERS.map((r) => (
                 <Chip key={r} active={role === r} onClick={() => setRole(r)}>{r}</Chip>
@@ -152,20 +152,21 @@ export default function UserManagementPage() {
 
           {actionErr && <div className="py-2 text-[12px] text-coral">{actionErr}</div>}
 
-          <div className="grid items-center px-1 pb-3 pt-[14px]" style={{ gridTemplateColumns: GRID }}>
+          <Card padded={false}>
+          <div className="grid items-center px-5 pb-3 pt-[14px]" style={{ gridTemplateColumns: GRID }}>
             <span />
             {["Name", "Role", "Joined", "Status", "Last active", ""].map((h, i) => <Label key={i}>{h}</Label>)}
           </div>
           <Hairline />
 
-          {loading && <div className="py-8"><Label>Loading…</Label></div>}
-          {error && <div className="py-8 text-[13px] text-coral">{error}</div>}
+          {loading && <div className="p-8"><Label>Loading…</Label></div>}
+          {error && <div className="p-8 text-[13px] text-coral">{error}</div>}
 
           {users.map((u) => (
             <div key={u.user_id} className="relative">
               <div
-                className="grid items-center px-1 py-4"
-                style={{ gridTemplateColumns: GRID, background: sel.includes(u.user_id) ? "#FFFFFF" : "transparent" }}
+                className="grid items-center px-5 py-4"
+                style={{ gridTemplateColumns: GRID, background: sel.includes(u.user_id) ? "var(--cream-deep)" : "transparent" }}
               >
                 <span
                   onClick={() => toggle(u.user_id)}
@@ -224,8 +225,8 @@ export default function UserManagementPage() {
               <Hairline />
             </div>
           ))}
-        </div>
-      </main>
+          </Card>
+      </PageBody>
     </>
   );
 }

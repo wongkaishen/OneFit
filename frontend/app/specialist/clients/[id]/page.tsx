@@ -2,10 +2,13 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Textarea } from "@/components/ui/Field";
 import { BarChart } from "@/components/ui/BarChart";
 import { useResource } from "@/lib/api/useResource";
 import { getClient, clientActivity, clientProgress, submitFeedback } from "@/lib/api/specialist";
@@ -64,14 +67,14 @@ export default function ClientDetailPage() {
   return (
     <>
       <TopBar title="Client" search="Search clients" avatarLetter="J" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[26px]">
-          <span
+      <PageBody>
+          <button
+            type="button"
             onClick={() => router.push("/specialist/clients")}
-            className="cursor-pointer font-sans text-[12px] text-muted"
+            className="cursor-pointer font-sans text-[12px] text-muted hover:text-charcoal"
           >
             ‹ Back to clients
-          </span>
+          </button>
 
           {client.loading && <div className="py-8"><Label>Loading…</Label></div>}
           {client.error && <div className="py-8 text-[13px] text-coral">{client.error}</div>}
@@ -104,14 +107,9 @@ export default function ClientDetailPage() {
                 }}>Message client</Button>
               </div>
 
-              <Hairline />
-
-              <div
-                className="mt-[26px] grid gap-0"
-                style={{ gridTemplateColumns: "1.3fr 1fr 1fr" }}
-              >
+              <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr_1fr]">
                 {/* left: weight trend + activity */}
-                <div className="border-r border-border pr-8">
+                <Card>
                   <Label>Weight trend · recent</Label>
                   <div className="my-[12px] mb-[18px] flex items-baseline gap-[10px]">
                     <span className="font-serif text-[36px] text-charcoal">
@@ -147,10 +145,10 @@ export default function ClientDetailPage() {
                       ))}
                     </div>
                   </div>
-                </div>
+                </Card>
 
                 {/* middle: meal plan placeholder (no current-plan endpoint) */}
-                <div className="border-r border-border px-8">
+                <Card>
                   <Label>Current meal plan</Label>
                   <div className="my-[12px] mb-[4px] font-sans text-[15px] font-semibold text-charcoal">
                     {c.goal ? `Goal: ${c.goal}` : "No active plan"}
@@ -161,16 +159,16 @@ export default function ClientDetailPage() {
                   <Button variant="ghost" size="sm" onClick={() => router.push("/specialist/plans/new")}>
                     Open meal-plan builder
                   </Button>
-                </div>
+                </Card>
 
                 {/* right: feedback module */}
-                <div className="pl-8">
+                <Card>
                   <Label>Send feedback</Label>
-                  <textarea
+                  <Textarea
                     value={notes}
                     onChange={(e) => onNotes(e.target.value)}
                     placeholder="Write advice or a note for this client…"
-                    className="mt-[14px] h-[120px] w-full resize-none border border-border bg-white p-3 font-sans text-[13px] leading-relaxed text-charcoal outline-none focus:border-charcoal"
+                    className="mt-[14px] h-[120px]"
                   />
                   <label className="mt-3 flex items-center gap-2 font-sans text-[12px] text-subtle">
                     <input
@@ -195,12 +193,11 @@ export default function ClientDetailPage() {
                   </div>
                   {sent && <div className="mt-3 font-sans text-[12px] text-good">{sent}</div>}
                   {sendError && <div className="mt-3 font-sans text-[12px] text-coral">{sendError}</div>}
-                </div>
+                </Card>
               </div>
             </>
           )}
-        </div>
-      </main>
+      </PageBody>
     </>
   );
 }

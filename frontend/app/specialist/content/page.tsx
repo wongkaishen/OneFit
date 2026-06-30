@@ -1,11 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Chip } from "@/components/ui/Chip";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card } from "@/components/ui/Card";
+import { FormField, Input, Textarea, FileInput } from "@/components/ui/Field";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { listContent, createContent, updateContent, deleteContent, uploadContentMedia, uploadCredential } from "@/lib/api/specialist";
 import type { ContentOut } from "@/lib/api/types";
@@ -135,18 +138,16 @@ export default function ContentPage() {
   return (
     <>
       <TopBar title="Content" search="Search content" avatarLetter="J" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>
-            Write educational articles for your members. New content starts as a draft and stays
-            private until you publish it — you must confirm you hold the rights before saving.
-          </PageIntro>
-          <div className="mb-6 border border-border bg-white p-4">
+      <PageBody>
+        <PageHeader eyebrow="Educational content">
+          Write educational articles for your members. New content starts as a draft and stays
+          private until you publish it — you must confirm you hold the rights before saving.
+        </PageHeader>
+          <Card className="mb-6">
             <Label>Upload your certification (admin reviews this for approval)</Label>
-            <input
-              type="file"
+            <div className="mt-3">
+            <FileInput
               accept=".pdf,image/*"
-              className="mt-2 text-[13px]"
               onChange={async (e) => {
                 const f = e.target.files?.[0];
                 if (!f) return;
@@ -158,10 +159,11 @@ export default function ContentPage() {
                 }
               }}
             />
-          </div>
+            </div>
+          </Card>
 
-          <div className="mb-[22px] flex items-center justify-between">
-            <div className="flex gap-[10px]">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-[10px]">
               {FILTERS.map((f) => (
                 <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>
               ))}
@@ -172,26 +174,25 @@ export default function ContentPage() {
           </div>
 
           {showForm && (
-            <div className="mb-8 border border-border bg-white p-6">
-              <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                <input placeholder="Title" value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="border border-border bg-white p-2 font-sans text-[13px] outline-none" />
-                <input placeholder="Category (e.g. Mental resilience)" value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="border border-border bg-white p-2 font-sans text-[13px] outline-none" />
+            <Card className="mb-8">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Title">
+                  <Input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                </FormField>
+                <FormField label="Category">
+                  <Input placeholder="e.g. Mental resilience" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+                </FormField>
               </div>
-              <textarea placeholder="Body" value={form.body}
-                onChange={(e) => setForm({ ...form, body: e.target.value })}
-                className="mt-3 h-24 w-full resize-none border border-border bg-white p-2 font-sans text-[13px] outline-none" />
-              <input placeholder="Media URL (optional)" value={form.media_url}
-                onChange={(e) => setForm({ ...form, media_url: e.target.value })}
-                className="mt-3 w-full border border-border bg-white p-2 font-sans text-[13px] outline-none" />
-              <div className="mt-3 flex flex-col gap-2">
-                <Label>Upload media (optional)</Label>
-                <input type="file" onChange={onPickMedia} className="font-sans text-[13px]" />
+              <FormField label="Body" className="mt-4">
+                <Textarea placeholder="Write the article…" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
+              </FormField>
+              <FormField label="Media URL (optional)" className="mt-4">
+                <Input placeholder="https://…" value={form.media_url} onChange={(e) => setForm({ ...form, media_url: e.target.value })} />
+              </FormField>
+              <FormField label="Upload media (optional)" className="mt-4">
+                <FileInput onChange={onPickMedia} />
                 {mediaUrl && <div className="font-sans text-[12px] text-good">Media attached.</div>}
-              </div>
+              </FormField>
               {!editingId && (
                 <label className="mt-3 flex items-center gap-2 font-sans text-[12px] text-subtle">
                   <input type="checkbox" checked={form.permission_confirmed}
@@ -208,16 +209,18 @@ export default function ContentPage() {
                   <span className="font-sans text-[11px] text-muted">Editing existing content</span>
                 )}
               </div>
-            </div>
+            </Card>
           )}
 
           {loading && <Label>Loading…</Label>}
           {error && <div className="text-[13px] text-coral">{error}</div>}
-          {!loading && !error && shown.length === 0 && <Label>No content yet</Label>}
+          {!loading && !error && shown.length === 0 && (
+            <EmptyState title="No content yet" icon="content">Create your first article with “+ Create content”.</EmptyState>
+          )}
 
-          <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {shown.map((p) => (
-              <div key={p.content_id} className="flex min-h-[150px] flex-col border border-border p-[22px]">
+              <div key={p.content_id} className="flex min-h-[150px] flex-col border border-border bg-paper p-[22px] shadow-card">
                 <div><Badge tone={toneFor(p.status)}>{p.status}</Badge></div>
                 <div className="mt-[18px] font-sans text-[18px] font-semibold text-charcoal">{p.title}</div>
                 <div className="mt-2 font-sans text-[12px] text-muted">{p.category}</div>
@@ -267,8 +270,7 @@ export default function ContentPage() {
               </div>
             ))}
           </div>
-        </div>
-      </main>
+      </PageBody>
     </>
   );
 }

@@ -21,7 +21,10 @@ from app.models import (
     Admin,
     Announcement,
     AuditLog,
+    CommunityGroup,
+    CommunityPost,
     DietaryLog,
+    Exercise,
     GymUser,
     LoginEvent,
     Notification,
@@ -377,9 +380,15 @@ class RejectIn(BaseModel):
 
 @router.get("/registrations", response_model=list[UserOut])
 async def list_registrations(admin: AdminDep, db: DbDep):
-    """Pending-registration queue (UC4): profiles still awaiting approval."""
+    """Pending specialist queue (UC4/B3): specialists still awaiting approval.
+
+    Gym users are active on sign-up (they confirm their own email via Supabase),
+    so only wellness specialists are gated behind admin approval and appear here.
+    """
     result = await db.execute(
-        select(Profile).where(Profile.status == "pending").order_by(Profile.created_at)
+        select(Profile)
+        .where(Profile.status == "pending", Profile.role == "wellness_specialist")
+        .order_by(Profile.created_at)
     )
     return result.scalars().all()
 
@@ -613,3 +622,271 @@ async def get_specialist_credential(user_id: uuid.UUID, admin: AdminDep, db: DbD
     if spec is None or not spec.certification_doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No credential on file")
     return {"url": await signed_url(CREDENTIALS_BUCKET, spec.certification_doc)}
+
+
+# --- Admin community oversight ----------------------------------------------
+# The admin moderates community content as the platform operator. Reading a
+# group's posts (which carry author PII) and every mutation are written to the
+# audit log for accountability (data-protection: lawful processing + audit).
+class CommunityGroupOut(BaseModel):
+    group_id: uuid.UUID
+    name: str
+    description: str | None = None
+    specialist_id: uuid.UUID | None = None
+    specialist_name: str | None = None
+    post_count: int = 0
+
+
+class CommunityPostOut(BaseModel):
+    post_id: uuid.UUID
+    group_id: uuid.UUID
+    author_id: uuid.UUID | None = None
+    author_name: str | None = None
+    author_email: str | None = None
+    content: str
+    status: str
+    severity: str | None = None
+    created_at: dt.datetime
+
+
+class PostPatch(BaseModel):
+    content: str | None = None
+    status: str | None = None
+
+
+# Mirrors the community_posts.status (post_status) enum from migration 0001.
+VALID_POST_STATUS = {"Posted", "Flagged", "UnderReview", "Approved", "Removed", "Escalated"}
+
+
+@router.get("/community/groups", response_model=list[CommunityGroupOut])
+async def admin_list_groups(admin: AdminDep, db: DbDep):
+    """All community groups with their owning specialist and post counts."""
+    count_sub = (
+        select(CommunityPost.group_id, func.count().label("n"))
+        .group_by(CommunityPost.group_id)
+        .subquery()
+    )
+    rows = (
+        await db.execute(
+            select(CommunityGroup, Profile.name, count_sub.c.n)
+            .outerjoin(Profile, Profile.id == CommunityGroup.specialist_id)
+            .outerjoin(count_sub, count_sub.c.group_id == CommunityGroup.group_id)
+            .order_by(CommunityGroup.name)
+        )
+    ).all()
+    return [
+        CommunityGroupOut(
+            group_id=g.group_id,
+            name=g.name,
+            description=g.description,
+            specialist_id=g.specialist_id,
+            specialist_name=name,
+            post_count=n or 0,
+        )
+        for g, name, n in rows
+    ]
+
+
+@router.get("/community/groups/{group_id}/posts", response_model=list[CommunityPostOut])
+async def admin_list_posts(group_id: uuid.UUID, admin: AdminDep, db: DbDep):
+    """All posts in a group (including Removed) with author identity (audited)."""
+    if await db.get(CommunityGroup, group_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    rows = (
+        await db.execute(
+            select(CommunityPost, Profile.name, Profile.email)
+            .outerjoin(Profile, Profile.id == CommunityPost.author_id)
+            .where(CommunityPost.group_id == group_id)
+            .order_by(CommunityPost.created_at.desc())
+        )
+    ).all()
+    # Accessing author PII for moderation is an audited event.
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="view_community_posts",
+                       details=f"group {group_id}: {len(rows)} post(s)")
+    await db.commit()
+    return [
+        CommunityPostOut(
+            post_id=p.post_id,
+            group_id=p.group_id,
+            author_id=p.author_id,
+            author_name=name,
+            author_email=email,
+            content=p.content,
+            status=p.status,
+            severity=p.severity,
+            created_at=p.created_at,
+        )
+        for p, name, email in rows
+    ]
+
+
+@router.patch("/community/posts/{post_id}", response_model=CommunityPostOut)
+async def admin_update_post(post_id: uuid.UUID, body: PostPatch, admin: AdminDep, db: DbDep):
+    """Edit a post's content and/or moderate its status (audited)."""
+    post = await db.get(CommunityPost, post_id)
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    changes: list[str] = []
+    if body.status is not None:
+        if body.status not in VALID_POST_STATUS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"status must be one of {sorted(VALID_POST_STATUS)}",
+            )
+        post.status = body.status
+        changes.append(f"status={body.status}")
+    if body.content is not None:
+        if not body.content.strip():
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="content cannot be empty")
+        post.content = body.content.strip()
+        changes.append("content edited")
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="update_community_post",
+                       details=f"post {post_id}: {', '.join(changes) or 'no change'}")
+    await db.commit()
+    await db.refresh(post)
+    author = (
+        await db.execute(select(Profile.name, Profile.email).where(Profile.id == post.author_id))
+    ).first()
+    return CommunityPostOut(
+        post_id=post.post_id, group_id=post.group_id, author_id=post.author_id,
+        author_name=author[0] if author else None, author_email=author[1] if author else None,
+        content=post.content, status=post.status, severity=post.severity, created_at=post.created_at,
+    )
+
+
+@router.delete("/community/posts/{post_id}")
+async def admin_delete_post(post_id: uuid.UUID, admin: AdminDep, db: DbDep):
+    """Remove a policy-violating post permanently (audited moderation action)."""
+    post = await db.get(CommunityPost, post_id)
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    await db.delete(post)
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="delete_community_post",
+                       details=f"post {post_id} deleted")
+    await db.commit()
+    return {"deleted": True, "post_id": post_id}
+
+
+# --- Admin program/plan management ------------------------------------------
+# The admin can review and manage any gym user's workout program as the platform
+# operator. Reads expose owner identity (PII) and are audited; removal archives
+# rather than destroys to preserve history (retention, not destruction).
+class AdminPlanOut(BaseModel):
+    plan_id: uuid.UUID
+    user_id: uuid.UUID
+    owner_name: str | None = None
+    owner_email: str | None = None
+    goal: str
+    generated_by: str
+    status: str
+    created_at: dt.datetime
+
+
+class PlanPatch(BaseModel):
+    goal: str | None = None
+    status: str | None = None
+
+
+VALID_PLAN_STATUS = {"active", "completed", "superseded"}
+
+
+@router.get("/programs/all", response_model=list[AdminPlanOut])
+async def admin_list_all_programs(admin: AdminDep, db: DbDep, status_filter: str | None = None):
+    """Every workout plan (any status) with its owner, for admin oversight."""
+    stmt = (
+        select(WorkoutPlan, Profile.name, Profile.email)
+        .outerjoin(Profile, Profile.id == WorkoutPlan.user_id)
+        .order_by(WorkoutPlan.created_at.desc())
+    )
+    if status_filter:
+        stmt = stmt.where(WorkoutPlan.status == status_filter)
+    rows = (await db.execute(stmt)).all()
+    return [
+        AdminPlanOut(
+            plan_id=p.plan_id, user_id=p.user_id, owner_name=name, owner_email=email,
+            goal=p.goal, generated_by=p.generated_by, status=p.status, created_at=p.created_at,
+        )
+        for p, name, email in rows
+    ]
+
+
+@router.get("/programs/{plan_id}/detail")
+async def admin_program_detail(plan_id: uuid.UUID, admin: AdminDep, db: DbDep):
+    """A plan with its exercises and scheduled sessions (audited PII access)."""
+    plan = await db.get(WorkoutPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
+    owner = (
+        await db.execute(select(Profile.name, Profile.email).where(Profile.id == plan.user_id))
+    ).first()
+    exercises = (
+        await db.execute(
+            select(Exercise).where(Exercise.plan_id == plan_id).order_by(Exercise.order_index)
+        )
+    ).scalars().all()
+    sessions = (
+        await db.execute(
+            select(WorkoutSession).where(WorkoutSession.plan_id == plan_id)
+            .order_by(WorkoutSession.scheduled_date)
+        )
+    ).scalars().all()
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="view_program_detail",
+                       details=f"plan {plan_id}")
+    await db.commit()
+    return {
+        "plan_id": plan.plan_id,
+        "user_id": plan.user_id,
+        "owner_name": owner[0] if owner else None,
+        "owner_email": owner[1] if owner else None,
+        "goal": plan.goal,
+        "generated_by": plan.generated_by,
+        "status": plan.status,
+        "created_at": plan.created_at,
+        "exercises": [
+            {
+                "exercise_id": e.exercise_id, "name": e.name, "sets": e.sets, "reps": e.reps,
+                "rest_seconds": e.rest_seconds, "order_index": e.order_index, "notes": e.notes,
+            }
+            for e in exercises
+        ],
+        "sessions": [
+            {
+                "session_id": s.session_id, "scheduled_date": s.scheduled_date, "status": s.status,
+            }
+            for s in sessions
+        ],
+    }
+
+
+@router.patch("/programs/{plan_id}", response_model=AdminPlanOut)
+async def admin_update_program(plan_id: uuid.UUID, body: PlanPatch, admin: AdminDep, db: DbDep):
+    """Edit a plan's goal and/or status (audited)."""
+    plan = await db.get(WorkoutPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
+    changes: list[str] = []
+    if body.status is not None:
+        if body.status not in VALID_PLAN_STATUS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"status must be one of {sorted(VALID_PLAN_STATUS)}",
+            )
+        plan.status = body.status
+        changes.append(f"status={body.status}")
+    if body.goal is not None:
+        if not body.goal.strip():
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="goal cannot be empty")
+        plan.goal = body.goal.strip()
+        changes.append("goal edited")
+    await record_audit(db, actor_id=uuid.UUID(admin.id), action="update_program",
+                       details=f"plan {plan_id}: {', '.join(changes) or 'no change'}")
+    await db.commit()
+    await db.refresh(plan)
+    owner = (
+        await db.execute(select(Profile.name, Profile.email).where(Profile.id == plan.user_id))
+    ).first()
+    return AdminPlanOut(
+        plan_id=plan.plan_id, user_id=plan.user_id,
+        owner_name=owner[0] if owner else None, owner_email=owner[1] if owner else None,
+        goal=plan.goal, generated_by=plan.generated_by, status=plan.status, created_at=plan.created_at,
+    )

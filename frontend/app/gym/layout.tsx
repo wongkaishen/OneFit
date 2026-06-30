@@ -1,5 +1,6 @@
-import { Sidebar, type NavItem } from "@/components/shell/Sidebar";
+import type { NavItem } from "@/components/shell/Sidebar";
 import { AuthGate } from "@/components/shell/AuthGate";
+import { AppShell } from "@/components/shell/AppShell";
 
 const GYM_NAV: NavItem[] = [
   { label: "Dashboard", href: "/gym/dashboard" },
@@ -19,10 +20,9 @@ const GYM_NAV: NavItem[] = [
 export default function GymLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate role="gym_user">
-      <div className="flex min-h-screen bg-cream font-sans">
-        <Sidebar items={GYM_NAV} role="Gym User" accent="coral" />
-        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
-      </div>
+      <AppShell items={GYM_NAV} role="Gym User" accent="coral">
+        {children}
+      </AppShell>
     </AuthGate>
   );
 }

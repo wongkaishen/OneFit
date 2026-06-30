@@ -1,5 +1,6 @@
-import { Sidebar, type NavItem } from "@/components/shell/Sidebar";
+import type { NavItem } from "@/components/shell/Sidebar";
 import { AuthGate } from "@/components/shell/AuthGate";
+import { AppShell } from "@/components/shell/AppShell";
 
 const SPECIALIST_NAV: NavItem[] = [
   { label: "Clients", href: "/specialist/clients" },
@@ -16,10 +17,9 @@ const SPECIALIST_NAV: NavItem[] = [
 export default function SpecialistLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate role="wellness_specialist">
-      <div className="flex min-h-screen bg-cream font-sans">
-        <Sidebar items={SPECIALIST_NAV} role="Wellness Specialist" accent="coral" />
-        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
-      </div>
+      <AppShell items={SPECIALIST_NAV} role="Wellness Specialist" accent="coral">
+        {children}
+      </AppShell>
     </AuthGate>
   );
 }

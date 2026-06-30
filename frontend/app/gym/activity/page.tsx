@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { TopBar } from "@/components/shell/TopBar";
-import { Label } from "@/components/ui/Label";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Button } from "@/components/ui/Button";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { FormField, Input } from "@/components/ui/Field";
 import { logActivity } from "@/lib/api/gym";
 import { ApiError } from "@/lib/api/client";
 import { queueActivity, pendingCount, flushQueue, installAutoFlush, onQueueChange } from "@/lib/offlineQueue";
@@ -70,37 +71,30 @@ export default function GymActivityPage() {
   const field = (
     label: string, value: string, set: (v: string) => void, type = "number", placeholder = "",
   ) => (
-    <div className="flex flex-col gap-2">
-      <Label>{label}</Label>
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => set(e.target.value)}
-        className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal"
-      />
-    </div>
+    <FormField label={label}>
+      <Input type={type} value={value} placeholder={placeholder} onChange={(e) => set(e.target.value)} />
+    </FormField>
   );
 
   return (
     <>
       <TopBar title="Log activity" search="Search" avatarLetter="G" />
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-[560px] px-9 py-[30px]">
-          <PageIntro>
-            Log your workouts, steps, and heart rate. Calories burned here offset your daily balance
-            on the dashboard.
-          </PageIntro>
-          <Label>Daily activity</Label>
+      <PageBody max="form">
+        <PageHeader eyebrow="Daily activity">
+          Log your workouts, steps, and heart rate. Calories burned here offset your daily balance
+          on the dashboard.
+        </PageHeader>
           {pending > 0 && (
-            <div className="mb-4 flex items-center justify-between border border-border bg-cream p-3 text-[13px] text-charcoal">
+            <div className="mb-4 flex items-center justify-between border border-coral-soft bg-coral-soft p-3 text-[13px] text-charcoal">
               <span>{pending} activity log(s) waiting to sync.</span>
-              <Button type="button" variant="ghost" onClick={() => flushQueue()}>Sync now</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => flushQueue()}>Sync now</Button>
             </div>
           )}
-          <form onSubmit={submit} className="mt-5 flex flex-col gap-5">
+          <Card>
+          <CardHeader eyebrow="New entry" title="Log a workout" />
+          <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
             {field("Workout type", workoutType, setWorkoutType, "text", "e.g. Running, Cycling, Weights, Yoga")}
-            <div className="grid grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {field("Duration (min)", duration, setDuration)}
               <div className="flex flex-col gap-2">
                 {field("Steps (if applicable)", steps, setSteps, "number", "Leave blank for non-step workouts")}
@@ -126,8 +120,8 @@ export default function GymActivityPage() {
               </Button>
             </div>
           </form>
-        </div>
-      </main>
+          </Card>
+      </PageBody>
     </>
   );
 }

@@ -13,9 +13,9 @@ export function MealPlanCard({ plan }: { plan: MealPlanOut }) {
   // Only show days that actually have food in them.
   const filled = days.filter((d) => d.meals?.some((m) => (m.items?.length ?? 0) > 0));
   return (
-    <div className="mb-5 border border-border bg-white p-5">
-      <div className="flex items-baseline justify-between">
-        <div className="font-serif text-[18px] text-charcoal">{plan.name}</div>
+    <div className="mb-5 border border-border bg-paper p-5 shadow-card">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="font-serif text-[19px] text-charcoal">{plan.name}</div>
         <Badge tone="good">{plan.goal}</Badge>
       </div>
       <div className="mt-1 font-sans text-[11px] text-muted">

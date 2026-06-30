@@ -365,6 +365,54 @@ export interface AdminUserActivity {
   recent_progress: ProgressEntry[];
 }
 
+export interface AdminCommunityGroup {
+  group_id: string;
+  name: string;
+  description: string | null;
+  specialist_id: string | null;
+  specialist_name: string | null;
+  post_count: number;
+}
+export interface AdminCommunityPost {
+  post_id: string;
+  group_id: string;
+  author_id: string | null;
+  author_name: string | null;
+  author_email: string | null;
+  content: string;
+  status: string;
+  severity: string | null;
+  created_at: string;
+}
+export interface AdminPlanOut {
+  plan_id: string;
+  user_id: string;
+  owner_name: string | null;
+  owner_email: string | null;
+  goal: string;
+  generated_by: string;
+  status: string;
+  created_at: string;
+}
+export interface AdminPlanExercise {
+  exercise_id: string;
+  name: string;
+  sets: number | null;
+  reps: number | null;
+  rest_seconds: number | null;
+  order_index: number;
+  notes: string | null;
+}
+export interface AdminPlanSession {
+  session_id: string;
+  scheduled_date: string;
+  status: string;
+}
+export interface AdminPlanDetail extends AdminPlanOut {
+  exercises: AdminPlanExercise[];
+  sessions: AdminPlanSession[];
+}
+
 export interface AIExercise {
   name: string; sets?: number; reps?: number; rest_seconds?: number; notes?: string;
 }

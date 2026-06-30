@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Hairline } from "@/components/ui/Hairline";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { FormField, Input, Select } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
@@ -57,40 +59,52 @@ export default function SpecialistTasksPage() {
   return (
     <>
       <TopBar title="Wellness tasks" search="Search" avatarLetter="S" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>Assign tasks to your clients and track their status. The client is notified when you assign a task.</PageIntro>
+      <PageBody>
+        <PageHeader eyebrow="Wellness tasks">
+          Assign tasks to your clients and track their status. The client is notified when you assign a task.
+        </PageHeader>
 
-          <Label>Assign a task</Label>
-          <form onSubmit={submit} className="mt-4 grid grid-cols-2 gap-3">
-            <select value={targetId} onChange={(e) => setTargetId(e.target.value)}
-              className="h-[42px] border border-border bg-white px-3 text-[14px] text-charcoal outline-none focus:border-charcoal">
-              <option value="">Select client…</option>
-              {(clients.data ?? []).map((c) => (
-                <option key={c.user_id} value={c.user_id}>{c.name ?? c.email}</option>
-              ))}
-            </select>
-            <input value={type} onChange={(e) => setType(e.target.value)} placeholder="Type (e.g. Cardio goal)"
-              className="h-[42px] border border-border bg-white px-3 text-[14px] outline-none focus:border-charcoal" />
-            <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description"
-              className="col-span-2 h-[42px] border border-border bg-white px-3 text-[14px] outline-none focus:border-charcoal" />
-            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-              className="h-[42px] border border-border bg-white px-3 text-[14px] outline-none focus:border-charcoal" />
-            <Button type="submit" variant="dark" disabled={busy}>{busy ? "Assigning…" : "Assign task"}</Button>
+          <Card>
+          <CardHeader eyebrow="Assign a task" title="New task" />
+          <form onSubmit={submit} className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="Client">
+              <Select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+                <option value="">Select client…</option>
+                {(clients.data ?? []).map((c) => (
+                  <option key={c.user_id} value={c.user_id}>{c.name ?? c.email}</option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField label="Type">
+              <Input value={type} onChange={(e) => setType(e.target.value)} placeholder="e.g. Cardio goal" />
+            </FormField>
+            <FormField label="Description" className="sm:col-span-2">
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What should the client do?" />
+            </FormField>
+            <FormField label="Due date">
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </FormField>
+            <div className="flex items-end">
+              <Button type="submit" variant="dark" disabled={busy} fullWidth>{busy ? "Assigning…" : "Assign task"}</Button>
+            </div>
           </form>
-          {err && <div className="mt-2 text-[13px] text-coral">{err}</div>}
+          {err && <div className="mt-3 text-[13px] text-coral">{err}</div>}
+          </Card>
 
           <div className="mt-9">
             <Label>Assigned tasks</Label>
-            <Hairline className="mt-2" />
+            <div className="mt-3">
             {tasks.loading && <div className="py-6"><Label>Loading…</Label></div>}
             {tasks.error && <div className="py-6 text-[13px] text-coral">{tasks.error}</div>}
             {!tasks.loading && !tasks.error && (tasks.data ?? []).length === 0 && (
-              <EmptyState title="No tasks yet">Assign your first task above.</EmptyState>
+              <EmptyState title="No tasks yet" icon="tasks">Assign your first task above.</EmptyState>
             )}
-            {(tasks.data ?? []).map((t) => (
+            {(tasks.data ?? []).length > 0 && (
+            <Card padded={false}>
+            {(tasks.data ?? []).map((t, i) => (
               <div key={t.task_id}>
-                <div className="flex items-center justify-between py-4">
+                {i > 0 && <Hairline />}
+                <div className="flex items-center justify-between gap-3 px-5 py-4">
                   <div>
                     <div className="font-sans text-[14px] text-charcoal">{t.type} — {t.description}</div>
                     <div className="mt-1 font-sans text-[11px] text-muted">Due {shortDate(t.due_date)}</div>
@@ -107,12 +121,13 @@ export default function SpecialistTasksPage() {
                     </button>
                   </div>
                 </div>
-                <Hairline />
               </div>
             ))}
+            </Card>
+            )}
+            </div>
           </div>
-        </div>
-      </main>
+      </PageBody>
     </>
   );
 }

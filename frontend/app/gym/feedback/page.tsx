@@ -1,9 +1,11 @@
 "use client";
 import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Avatar } from "@/components/shell/Avatar";
 import { useResource } from "@/lib/api/useResource";
@@ -25,32 +27,30 @@ export default function GymFeedbackPage() {
   return (
     <>
       <TopBar title="Feedback" search="Search" avatarLetter={avatarLetter} />
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-[720px] px-9 py-[30px]">
-          <Label>Feedback from your specialist</Label>
-          <div className="mt-1 max-w-[560px] font-sans text-[13px] leading-relaxed text-muted">
-            Notes your wellness specialist has shared with you, newest first. “Plan updated” means
-            they also adjusted your program.
-          </div>
-
-          <Hairline className="mt-5" />
+      <PageBody max="form">
+        <PageHeader eyebrow="Feedback from your specialist">
+          Notes your wellness specialist has shared with you, newest first. “Plan updated” means
+          they also adjusted your program.
+        </PageHeader>
 
           {loading && <div className="py-8"><Label>Loading…</Label></div>}
           {error && <div className="py-8 text-[13px] text-coral">{error}</div>}
           {!loading && !error && items.length === 0 && (
-            <EmptyState title="No feedback yet">
+            <EmptyState title="No feedback yet" icon="feedback">
               When your specialist reviews your progress and sends feedback, it will appear here and
               you’ll get a notification.
             </EmptyState>
           )}
 
-          {items.map((f) => {
+          {items.length > 0 && (
+          <Card padded={false}>
+          {items.map((f, idx) => {
             const highlighted = f.feedback_id === highlightId;
             return (
               <div key={f.feedback_id}>
+                {idx > 0 && <Hairline />}
                 <div
-                  className="flex items-start gap-4 px-3 py-5"
-                  style={highlighted ? { background: "var(--good-bg, rgba(0,0,0,0.02))" } : undefined}
+                  className={`flex items-start gap-4 px-5 py-5 ${highlighted ? "bg-coral-soft/40" : ""}`}
                 >
                   <Avatar letter={(f.specialist_name ?? "S")[0]?.toUpperCase() ?? "S"} />
                   <div className="min-w-0 flex-1">
@@ -70,12 +70,12 @@ export default function GymFeedbackPage() {
                     )}
                   </div>
                 </div>
-                <Hairline />
               </div>
             );
           })}
-        </div>
-      </main>
+          </Card>
+          )}
+      </PageBody>
     </>
   );
 }

@@ -73,6 +73,30 @@ async def _gotrue(path: str, payload: dict) -> dict:
     return resp.json()
 
 
+async def _gotrue_admin_create_user(payload: dict) -> dict:
+    """Create an auth user via the GoTrue Admin API (service-role key).
+
+    Used for wellness specialists so they are email-confirmed immediately and can
+    obtain a session right after signing up — that session is what lets them upload
+    their credential during onboarding. Admin approval still gates real access via
+    profiles.status='pending'.
+    """
+    async with httpx.AsyncClient(base_url=settings.gotrue_url, timeout=15) as client:
+        resp = await client.post(
+            "/admin/users",
+            json=payload,
+            headers={
+                "apikey": settings.supabase_service_role_key,
+                "Authorization": f"Bearer {settings.supabase_service_role_key}",
+                "Content-Type": "application/json",
+            },
+        )
+    if resp.status_code >= 400:
+        detail = resp.json().get("msg") or resp.json().get("error_description") or resp.text
+        raise HTTPException(status_code=resp.status_code, detail=detail)
+    return resp.json()
+
+
 async def _record_login_event(
     db: AsyncSession, *, email: str, user_id, success: bool, ip: str | None, user_agent: str | None
 ) -> None:
@@ -100,7 +124,7 @@ async def _provision_subtype(db: AsyncSession, user_id: str, role: RegisterRole)
     try:
         if role == "wellness_specialist":
             # specialization is NOT NULL; seed a placeholder the specialist edits
-            # later. approval_status defaults to 'pending'.
+            # later.
             await db.execute(
                 text(
                     "insert into public.wellness_specialists (user_id, specialization) "
@@ -136,21 +160,35 @@ async def _provision_subtype(db: AsyncSession, user_id: str, role: RegisterRole)
 async def register(body: RegisterRequest, db: Annotated[AsyncSession, Depends(get_db)]):
     """Register a new Gym User or Wellness Specialist (UC1).
 
-    Accounts are active on sign-up (the handle_new_user trigger sets status
-    'active') and can use the app immediately once their email is confirmed;
-    role-based access still governs what each role sees. 'suspended' remains an
-    admin-moderation state. Admins are seeded directly in Supabase and cannot
-    self-register. Returns the GoTrue signup result.
+    Gym users go through the normal /signup flow and confirm their email before
+    signing in. Wellness specialists are created via the Admin API as
+    email-confirmed so they receive a session immediately and can upload their
+    credential during onboarding; admin approval still gates access via
+    profiles.status='pending'. 'suspended' remains an admin-moderation state.
+    Admins are seeded directly in Supabase and cannot self-register.
     """
-    result = await _gotrue(
-        "/signup",
-        {
-            "email": body.email,
-            "password": body.password,
-            # The on_auth_user_created trigger maps this role into public.profiles.
-            "data": {"name": body.name, "role": body.role},
-        },
-    )
+    if body.role == "wellness_specialist":
+        # Email-confirmed on creation so the frontend can log in straight away and
+        # upload the credential; the on_auth_user_created trigger maps the role
+        # into public.profiles, and _provision_subtype downgrades status to pending.
+        result = await _gotrue_admin_create_user(
+            {
+                "email": body.email,
+                "password": body.password,
+                "email_confirm": True,
+                "user_metadata": {"name": body.name, "role": body.role},
+            },
+        )
+    else:
+        result = await _gotrue(
+            "/signup",
+            {
+                "email": body.email,
+                "password": body.password,
+                # The on_auth_user_created trigger maps this role into public.profiles.
+                "data": {"name": body.name, "role": body.role},
+            },
+        )
     user = result.get("user") or result
     user_id = user.get("id")
     if user_id:

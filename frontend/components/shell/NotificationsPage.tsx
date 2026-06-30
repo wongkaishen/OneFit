@@ -2,9 +2,11 @@
 import { useCallback, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
 import { Chip } from "@/components/ui/Chip";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import { useResource } from "@/lib/api/useResource";
@@ -93,11 +95,10 @@ export function NotificationsPage({
   return (
     <>
       <TopBar title="Notifications" search="Search" avatarLetter={avatarLetter} />
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-[720px] px-9 py-[30px]">
+      <PageBody max="form">
           {topSlot}
-          <div className="mb-[18px] flex items-center justify-between">
-            <div className="flex gap-[10px]">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-[10px]">
               {FILTERS.map((f) => (
                 <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>
                   {f === "Unread" ? `Unread (${unread.length})` : f}
@@ -111,12 +112,11 @@ export function NotificationsPage({
             )}
           </div>
 
-          <Hairline />
-
-          {loading && <div className="py-8"><Label>Loading…</Label></div>}
-          {error && <div className="py-8 text-[13px] text-coral">{error}</div>}
+          <Card padded={false}>
+          {loading && <div className="p-8"><Label>Loading…</Label></div>}
+          {error && <div className="p-8 text-[13px] text-coral">{error}</div>}
           {!loading && !error && items.length === 0 && (
-            <div className="py-10 text-center font-sans text-[13px] text-muted">
+            <div className="py-12 text-center font-sans text-[13px] text-muted">
               {filter === "Unread"
                 ? "No unread notifications"
                 : filter === "Announcements"
@@ -125,15 +125,18 @@ export function NotificationsPage({
             </div>
           )}
 
-          {items.map((n) => (
+          {items.map((n, i) => (
             <div key={n.notification_id}>
+              {i > 0 && <Hairline />}
               <div
                 onClick={() => open(n)}
-                className="flex cursor-pointer items-start gap-4 py-4 hover:bg-white"
+                className={`flex cursor-pointer items-start gap-4 px-5 py-4 transition-colors hover:bg-cream-deep ${
+                  n.status === "unread" ? "bg-coral-soft/40" : ""
+                }`}
               >
                 <span
                   className="mt-[7px] h-[7px] w-[7px] flex-none rounded-full"
-                  style={{ background: n.status === "unread" ? "var(--coral)" : "var(--border)" }}
+                  style={{ background: n.status === "unread" ? "var(--coral)" : "var(--border-strong)" }}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="font-sans text-[10px] uppercase tracking-label text-muted">
@@ -145,20 +148,19 @@ export function NotificationsPage({
                 </div>
                 <Label>{relativeTime(n.sent_at)}</Label>
               </div>
-              <Hairline />
             </div>
           ))}
-        </div>
-      </main>
+          </Card>
+      </PageBody>
 
       {selected && (
         <div
           onClick={() => setSelected(null)}
-          className="fixed inset-0 z-40 flex items-center justify-center bg-charcoal/30 px-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/40 px-6 backdrop-blur-[2px]"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[520px] border border-border bg-cream p-7"
+            className="w-full max-w-[520px] animate-fade-in border border-border bg-cream p-7 shadow-pop"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="font-sans text-[10px] uppercase tracking-label text-muted">

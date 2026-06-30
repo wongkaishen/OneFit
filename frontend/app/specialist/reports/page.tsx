@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Label } from "@/components/ui/Label";
 import { Hairline } from "@/components/ui/Hairline";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card } from "@/components/ui/Card";
 import { BarChart } from "@/components/ui/BarChart";
 import { Button } from "@/components/ui/Button";
 import { useResource } from "@/lib/api/useResource";
@@ -49,23 +50,19 @@ export default function ReportsPage() {
   return (
     <>
       <TopBar title="Reports" search="Search" avatarLetter="J" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>
-            Aggregated, anonymized trends across your <b>whole roster</b> — use them to spot patterns
-            and refine your programs. These are cohort-level figures, so they can’t be filtered to a
-            single client; open a client’s profile for individual data.
-          </PageIntro>
-          <div className="mb-6 flex items-center justify-between">
-            <Label>Roster health trends</Label>
-            <Button
-              onClick={handleGenerateTrend}
-              disabled={generating}
-              size="sm"
-            >
+      <PageBody>
+        <PageHeader
+          eyebrow="Roster health trends"
+          actions={
+            <Button onClick={handleGenerateTrend} disabled={generating} size="sm">
               {generating ? "Generating…" : "Generate trend report"}
             </Button>
-          </div>
+          }
+        >
+          Aggregated, anonymized trends across your <b>whole roster</b> — use them to spot patterns
+          and refine your programs. These are cohort-level figures; open a client’s profile for
+          individual data.
+        </PageHeader>
           <div className="mb-4 font-sans text-[12px] text-muted">
             The recommendation below is <b>AI-generated</b> from your roster’s aggregate metrics —
             review it before acting on it.
@@ -76,10 +73,10 @@ export default function ReportsPage() {
           )}
 
           {recommendation && (
-            <div className="mb-6 border-l-2 border-coral bg-white p-4 text-[14px] text-charcoal">
+            <Card className="mb-6 border-l-2 border-l-coral text-[14px] text-charcoal">
               <Label>Recommendation</Label>
-              <div className="mt-2">{recommendation}</div>
-            </div>
+              <div className="mt-2 leading-relaxed">{recommendation}</div>
+            </Card>
           )}
 
           {loading && <div className="py-8"><Label>Loading…</Label></div>}
@@ -90,15 +87,15 @@ export default function ReportsPage() {
           )}
 
           {!loading && !error && clients.length > 0 && (
-            <div className="mt-6 grid gap-0" style={{ gridTemplateColumns: "1.3fr 1fr" }}>
-              <div className="border-r border-border pr-8">
+            <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
+              <Card>
                 <Label>Clients by goal</Label>
                 <div className="font-sans text-[11px] text-muted">
                   How many of your clients are working toward each fitness goal.
                 </div>
                 <div className="mt-4"><BarChart data={goalData} height={160} highlightLast={false} /></div>
-              </div>
-              <div className="pl-8">
+              </Card>
+              <Card>
                 <Label>Roster summary</Label>
                 <div className="mt-4 flex justify-between py-2">
                   <span className="font-sans text-[13px] text-subtle">Active clients</span>
@@ -118,11 +115,10 @@ export default function ReportsPage() {
                     {withWeight.length}/{clients.length}
                   </span>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
-        </div>
-      </main>
+      </PageBody>
     </>
   );
 }

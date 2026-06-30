@@ -27,8 +27,8 @@ export const viewport: Viewport = { themeColor: "#E5573F" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${garamond.variable}`}>
-      <body className="font-sans">{children}</body>
+    <html lang="en" className={`${inter.variable} ${garamond.variable}`} suppressHydrationWarning>
+      <body className="font-sans" suppressHydrationWarning>{children}</body>
     </html>
   );
 }

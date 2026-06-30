@@ -1,11 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { TopBar } from "@/components/shell/TopBar";
-import { Label } from "@/components/ui/Label";
+import { PageBody, PageHeader } from "@/components/shell/Page";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Chip } from "@/components/ui/Chip";
 import { Hairline } from "@/components/ui/Hairline";
-import { PageIntro } from "@/components/ui/PageIntro";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Field";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/client";
 import { listGroups, createGroup, deleteGroup, listGroupPosts, createGroupPost, moderatePost } from "@/lib/api/specialist";
@@ -70,22 +73,21 @@ export default function SpecialistCommunityPage() {
   return (
     <>
       <TopBar title="Community" search="Search" avatarLetter="S" />
-      <main className="flex-1 overflow-auto">
-        <div className="px-9 py-[30px]">
-          <PageIntro>Create groups, post updates, and moderate member posts.</PageIntro>
+      <PageBody>
+        <PageHeader eyebrow="Community">Create groups, post updates, and moderate member posts.</PageHeader>
 
-          <div className="mb-6 flex items-end gap-3">
-            <input value={newGroup} onChange={(e) => setNewGroup(e.target.value)} placeholder="New group name"
-              className="h-[42px] flex-1 border border-border px-3 text-[14px] outline-none focus:border-charcoal" />
-            <Button type="button" variant="dark" onClick={addGroup}>Create group</Button>
-          </div>
+          <Card className="mb-6">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+              <Input value={newGroup} onChange={(e) => setNewGroup(e.target.value)} placeholder="New group name" />
+              <Button type="button" variant="dark" onClick={addGroup}>Create group</Button>
+            </div>
+          </Card>
           {err && <div className="mb-3 text-[13px] text-coral">{err}</div>}
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {(groups.data ?? []).map((g) => (
               <div key={g.group_id} className="flex items-center gap-1">
-                <Button type="button" variant={active === g.group_id ? "dark" : "ghost"}
-                  onClick={() => setActive(g.group_id)}>{g.name}</Button>
+                <Chip active={active === g.group_id} onClick={() => setActive(g.group_id)}>{g.name}</Chip>
                 <button
                   type="button"
                   onClick={() => removeGroup(g.group_id)}
@@ -101,33 +103,37 @@ export default function SpecialistCommunityPage() {
 
           {active && (
             <div className="mt-6">
-              <div className="flex items-end gap-3">
-                <input value={newPost} onChange={(e) => setNewPost(e.target.value)} placeholder="Post an update…"
-                  className="h-[42px] flex-1 border border-border px-3 text-[14px] outline-none focus:border-charcoal" />
-                <Button type="button" variant="dark" onClick={addPost}>Post</Button>
-              </div>
-              <Hairline className="mt-4" />
-              {postsError && (
-                <div className="mt-4 text-[14px] text-coral">{postsError}</div>
+              <Card>
+                <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+                  <Input value={newPost} onChange={(e) => setNewPost(e.target.value)} placeholder="Post an update…" />
+                  <Button type="button" variant="dark" onClick={addPost}>Post</Button>
+                </div>
+              </Card>
+              {postsError && <div className="mt-4 text-[14px] text-coral">{postsError}</div>}
+              {posts.length === 0 && !postsError && (
+                <div className="mt-6"><EmptyState title="No posts yet" icon="community">Post the first update for this group.</EmptyState></div>
               )}
-              {posts.map((p) => (
-                <div key={p.post_id}>
-                  <div className="flex items-center justify-between py-4">
-                    <div className="font-sans text-[14px] text-charcoal">{p.content}</div>
-                    <div className="flex items-center gap-2">
-                      <Badge tone={p.status === "Removed" ? "neutral" : "good"}>{p.status}</Badge>
-                      <Button type="button" variant="ghost" onClick={() => moderate(p.post_id, "warn")}>Flag</Button>
-                      <Button type="button" variant="ghost" onClick={() => moderate(p.post_id, "remove")}>Remove</Button>
-                      <Button type="button" variant="ghost" onClick={() => moderate(p.post_id, "escalate")}>Escalate</Button>
+              {posts.length > 0 && (
+                <Card padded={false} className="mt-5">
+                {posts.map((p, i) => (
+                  <div key={p.post_id}>
+                    {i > 0 && <Hairline />}
+                    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="font-sans text-[14px] text-charcoal">{p.content}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={p.status === "Removed" ? "neutral" : "good"}>{p.status}</Badge>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => moderate(p.post_id, "warn")}>Flag</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => moderate(p.post_id, "remove")}>Remove</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => moderate(p.post_id, "escalate")}>Escalate</Button>
+                      </div>
                     </div>
                   </div>
-                  <Hairline />
-                </div>
-              ))}
+                ))}
+                </Card>
+              )}
             </div>
           )}
-        </div>
-      </main>
+      </PageBody>
     </>
   );
 }
