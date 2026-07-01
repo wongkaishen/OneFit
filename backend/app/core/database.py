@@ -15,7 +15,7 @@ settings = get_settings()
 # and generate unique names for the prepares SQLAlchemy still performs (e.g. the
 # jsonb codec setup on first connect).
 engine = create_async_engine(
-    settings.database_url,
+    settings.database_url.strip(),
     pool_pre_ping=True,
     connect_args={
         "statement_cache_size": 0,

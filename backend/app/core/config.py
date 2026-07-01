@@ -26,6 +26,8 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: str = "http://localhost:3000"
+    # Optional regex to match dynamic origins (e.g. Vercel preview deploys).
+    cors_origin_regex: str | None = None
 
     @property
     def ai_enabled(self) -> bool:
