@@ -18,6 +18,13 @@ export default function LoginPage() {
   );
 }
 
+// Demo accounts for quick sign-in during evaluation (shared password).
+const DEMO_ACCOUNTS = [
+  { label: "Gym User", email: "gym@onefit.io", password: "OneFit123!" },
+  { label: "Specialist", email: "specialist@onefit.io", password: "OneFit123!" },
+  { label: "Admin", email: "admin@onefit.io", password: "OneFit123!" },
+];
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -107,6 +114,27 @@ function LoginForm() {
             {busy ? "Signing in…" : "Sign in"}
           </Button>
           <Button type="button" variant="ghost" onClick={oauth} fullWidth>Continue with Google</Button>
+
+          <div className="pt-1">
+            <p className="mb-2 text-center text-[11px] uppercase tracking-label text-muted">Demo accounts</p>
+            <div className="grid grid-cols-3 gap-2">
+              {DEMO_ACCOUNTS.map((a) => (
+                <button
+                  key={a.email}
+                  type="button"
+                  onClick={() => {
+                    setEmail(a.email);
+                    setPassword(a.password);
+                    setError(null);
+                    setNotice(null);
+                  }}
+                  className="border border-border bg-cream px-2 py-2 text-[12px] font-medium text-charcoal transition-colors hover:border-charcoal hover:bg-white"
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </form>
         </Card>
 
